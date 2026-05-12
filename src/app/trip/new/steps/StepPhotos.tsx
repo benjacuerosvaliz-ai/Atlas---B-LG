@@ -48,7 +48,7 @@ export function StepPhotos({ data, patch }: Props) {
         uploaded.push(asset);
       } catch (err) {
         console.error("[upload]", err);
-        setError("Una foto no se pudo subir. Reintentá.");
+        setError("Una foto no se pudo subir. Reintenta.");
       } finally {
         setUploading((n) => n - 1);
       }

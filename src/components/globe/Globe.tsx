@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { cn } from "@/lib/utils";
 
 const ROTATION_PERIOD_SEC = 120; // 1 vuelta completa cada 120s (concepto §4)
 
@@ -38,6 +39,12 @@ type Props = {
    * - 4.2 = far framing for the full Atlas, forces user to zoom in
    */
   cameraDistance?: number;
+  /**
+   * Where the click-to-pin trip panel anchors. Default "bottom" works for
+   * mini-globes that live inside a page. Full-viewport globes (like the
+   * Atlas) should use "top" so the panel doesn't overlap a bottom HUD.
+   */
+  panelPlacement?: "top" | "bottom";
 };
 
 function latLngToVec3(
@@ -178,6 +185,7 @@ export function Globe({
   points = [],
   height = "min(80vh, 700px)",
   cameraDistance = 2.7,
+  panelPlacement = "bottom",
 }: Props) {
   // Auto-rotation runs until the first user interaction (drag, zoom, click)
   // and then stays off for the rest of the session — easier to click points
@@ -251,7 +259,14 @@ export function Globe({
 
       {/* Pinned panel: trips at this location. */}
       {pinned && (pinned.trips?.length ?? 0) > 0 && (
-        <div className="absolute bottom-3 left-3 right-3 z-10 flex flex-col gap-3 border border-border bg-card/95 p-3 backdrop-blur-sm">
+        <div
+          className={cn(
+            "absolute left-3 right-3 z-30 flex flex-col gap-3 border border-border bg-card/95 p-3 backdrop-blur-sm",
+            panelPlacement === "top"
+              ? "top-3 md:left-auto md:right-3 md:top-3 md:max-w-sm"
+              : "bottom-3",
+          )}
+        >
           <div className="flex items-baseline justify-between gap-3">
             <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/60">
               {pinned.trips!.length === 1 ? "Viaje en" : "Viajes en"}{" "}

@@ -18,7 +18,7 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
   // Server-side re-validation. Never trust the client wizard alone.
   if (!data.startPlace) return { error: "Falta el lugar de inicio." };
   if (!data.startAt) return { error: "Falta la fecha de inicio." };
-  if (!data.activityType) return { error: "Elegí un tipo de actividad." };
+  if (!data.activityType) return { error: "Elige un tipo de actividad." };
   if (typeof data.distanceKm !== "number" || data.distanceKm < 0) {
     return { error: "Distancia inválida." };
   }

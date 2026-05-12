@@ -115,7 +115,7 @@ export function OnboardingForm({ initialDisplayName, catalog }: Props) {
           )}
         </div>
         <p className="max-w-lg text-sm leading-relaxed text-foreground/55">
-          Marcá los que ya tenés para empezar tu gear. Podés agregar más
+          Marca los que ya tienes para empezar tu gear. Puedes agregar más
           después.
         </p>
         <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">

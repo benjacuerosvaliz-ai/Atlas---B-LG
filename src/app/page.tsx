@@ -44,12 +44,12 @@ export default async function Home() {
                 BØLG Atlas
               </span>
               <h1 className="font-display text-4xl font-black leading-[1.04] tracking-tight md:text-5xl lg:text-[3.75rem]">
-                Las olas no se quedan quietas.
+                Cada cliente, cada kilómetro, cada país.
               </h1>
               <p className="max-w-md text-base leading-relaxed text-foreground/65 md:text-lg">
-                La bitácora de todas las BØLG del mundo. Cada producto suma
-                kilómetros, países y dueños sucesivos. Cada viaje pinta el
-                globo.
+                Los clientes BØLG recorren el mundo y lo van pintando acá. Mira
+                en vivo dónde están, cuántos kilómetros llevan acumulados y qué
+                países han pisado.
               </p>
             </div>
 
@@ -98,14 +98,14 @@ export default async function Home() {
             <Step
               n={2}
               icon={Mountain}
-              title="Subí tu primer viaje"
+              title="Sube tu primer viaje"
               body="Lugar, fechas, fotos, los BØLG que llevaste. Calculamos los kilómetros automático."
             />
             <Step
               n={3}
               icon={Package}
               title="Tu perfil crece"
-              body="Tus km, países y gear se acumulan. Compartí tu perfil público, sumá medallas, sé top viajero."
+              body="Tus km, países y gear se acumulan. Comparte tu perfil público, suma medallas, sé top viajero."
             />
           </ol>
         </section>

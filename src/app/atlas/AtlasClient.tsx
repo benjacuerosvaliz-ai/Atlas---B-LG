@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { BolgWordmark } from "@/components/bolg-wordmark";
 import { Globe, type GlobePoint } from "@/components/globe/Globe";
 import { createClient } from "@/lib/supabase/client";
-import { ACTIVITY_LABELS, type ActivityType } from "@/app/trip/new/types";
 import { tripDisplayTitle } from "@/components/trip-card";
 
 export type AtlasTrip = {
@@ -36,10 +35,6 @@ export type CatalogEntry = {
   category: string | null;
 };
 
-const ACTIVITIES: { id: ActivityType; label: string }[] = (
-  Object.entries(ACTIVITY_LABELS) as [ActivityType, string][]
-).map(([id, label]) => ({ id, label }));
-
 type Props = {
   initialTrips: AtlasTrip[];
   catalog: CatalogEntry[];
@@ -48,7 +43,6 @@ type Props = {
 export function AtlasClient({ initialTrips, catalog }: Props) {
   const [trips, setTrips] = useState<AtlasTrip[]>(initialTrips);
   const [modelFilter, setModelFilter] = useState<string>("");
-  const [activityFilter, setActivityFilter] = useState<string>("");
   const [pulseAt, setPulseAt] = useState<number>(0);
   const seenIds = useRef(new Set(initialTrips.map((t) => t.id)));
 
@@ -132,10 +126,9 @@ export function AtlasClient({ initialTrips, catalog }: Props) {
   const filtered = useMemo(() => {
     return trips.filter((t) => {
       if (modelFilter && !t.modelIds.includes(modelFilter)) return false;
-      if (activityFilter && t.activityType !== activityFilter) return false;
       return true;
     });
-  }, [trips, modelFilter, activityFilter]);
+  }, [trips, modelFilter]);
 
   // Globe points: group by short_name; same trip can contribute at two
   // endpoints, dedupe via tripId.
@@ -223,7 +216,12 @@ export function AtlasClient({ initialTrips, catalog }: Props) {
       </header>
 
       {/* Globe full screen */}
-      <Globe points={points} height="100dvh" cameraDistance={4.2} />
+      <Globe
+        points={points}
+        height="100dvh"
+        cameraDistance={4.2}
+        panelPlacement="top"
+      />
 
       {/* HUD: stats + filters, glassmorphic, top-left, mobile-friendly */}
       <div className="pointer-events-none absolute left-0 right-0 bottom-0 z-20 flex flex-col gap-3 px-4 pb-6 md:left-6 md:right-auto md:bottom-6 md:max-w-xs md:px-0 md:pb-0">
@@ -254,31 +252,14 @@ export function AtlasClient({ initialTrips, catalog }: Props) {
                 ))}
               </select>
             </FilterRow>
-            <FilterRow label="Actividad">
-              <select
-                value={activityFilter}
-                onChange={(e) => setActivityFilter(e.target.value)}
-                className={selectCls}
-              >
-                <option value="">Todas</option>
-                {ACTIVITIES.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.label}
-                  </option>
-                ))}
-              </select>
-            </FilterRow>
-            {(modelFilter || activityFilter) && (
+            {modelFilter && (
               <button
                 type="button"
-                onClick={() => {
-                  setModelFilter("");
-                  setActivityFilter("");
-                }}
+                onClick={() => setModelFilter("")}
                 className="flex items-center gap-1.5 self-start text-[10px] uppercase tracking-[0.28em] text-foreground/55 hover:text-foreground transition-colors"
               >
                 <X className="h-3 w-3" />
-                Limpiar filtros
+                Limpiar filtro
               </button>
             )}
           </div>
