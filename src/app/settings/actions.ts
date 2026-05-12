@@ -29,6 +29,8 @@ export async function updateProfile(
   // Instagram: strip a leading @ if the user pasted one; normalize to lowercase.
   const instagramRaw = String(formData.get("instagram_handle") ?? "").trim();
   const instagram = instagramRaw.replace(/^@/, "").toLowerCase();
+  const avatarUrl = String(formData.get("avatar_url") ?? "").trim();
+  const coverUrl = String(formData.get("cover_url") ?? "").trim();
 
   if (!USERNAME_RE.test(username)) {
     return {
@@ -62,6 +64,8 @@ export async function updateProfile(
       bio: bio || null,
       city: city || null,
       instagram_handle: instagram || null,
+      avatar_url: avatarUrl || null,
+      cover_url: coverUrl || null,
     })
     .eq("id", user.id);
 

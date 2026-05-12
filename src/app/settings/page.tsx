@@ -20,7 +20,9 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("users")
-    .select("username, display_name, bio, country_code, city, instagram_handle")
+    .select(
+      "username, display_name, bio, country_code, city, instagram_handle, avatar_url, cover_url",
+    )
     .eq("id", user.id)
     .single();
 
@@ -57,6 +59,8 @@ export default async function SettingsPage() {
             initialBio={profile?.bio ?? ""}
             initialCity={profile?.city ?? ""}
             initialInstagram={profile?.instagram_handle ?? ""}
+            initialAvatarUrl={profile?.avatar_url ?? ""}
+            initialCoverUrl={profile?.cover_url ?? ""}
             email={user.email ?? ""}
           />
         </div>
