@@ -3,6 +3,7 @@ import { es } from "date-fns/locale";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { BolgWordmark } from "@/components/bolg-wordmark";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVITY_LABELS, type ActivityType } from "@/app/trip/new/types";
 
@@ -66,14 +67,7 @@ export default async function TripPage({ params }: Props) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-between px-6 py-5 md:px-10 md:py-7">
-        <Link href="/" className="flex items-baseline gap-3">
-          <span className="font-display text-xl font-black leading-none tracking-tight md:text-2xl">
-            BØLG
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/50">
-            Atlas
-          </span>
-        </Link>
+        <BolgWordmark href="/" />
         <Link
           href="/dashboard"
           className="text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"

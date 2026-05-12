@@ -9,6 +9,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { BolgWordmark } from "@/components/bolg-wordmark";
 import { TripCard, tripDisplayTitle } from "@/components/trip-card";
 import { createClient } from "@/lib/supabase/server";
 import { levels } from "@/lib/tokens";
@@ -172,14 +173,7 @@ export default async function UserProfilePage({ params }: Props) {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-6 py-5 md:px-10 md:py-7">
-        <Link href="/" className="flex items-baseline gap-3">
-          <span className="font-display text-xl font-black leading-none tracking-tight text-bone md:text-2xl">
-            BØLG
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.36em] text-bone/60">
-            Atlas
-          </span>
-        </Link>
+        <BolgWordmark href="/" />
         {isSelf && (
           <Link
             href="/dashboard"
@@ -267,7 +261,7 @@ export default async function UserProfilePage({ params }: Props) {
         {/* Mini-globe */}
         {points.length > 0 && (
           <section className="mx-auto mt-12 w-full max-w-3xl px-6 md:px-10">
-            <Globe points={points} height="380px" />
+            <Globe points={points} height="380px" cameraDistance={3.6} />
           </section>
         )}
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { BolgWordmark } from "@/components/bolg-wordmark";
 import { createClient } from "@/lib/supabase/server";
 import { SettingsForm } from "./SettingsForm";
 
@@ -26,14 +27,7 @@ export default async function SettingsPage() {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-between px-6 py-5 md:px-10 md:py-7">
-        <Link href="/dashboard" className="flex items-baseline gap-3">
-          <span className="font-display text-xl font-black leading-none tracking-tight md:text-2xl">
-            BØLG
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/50">
-            Atlas
-          </span>
-        </Link>
+        <BolgWordmark href="/dashboard" />
         <Link
           href="/dashboard"
           className="text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"

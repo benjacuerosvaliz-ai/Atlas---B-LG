@@ -30,6 +30,14 @@ export type GlobePoint = {
 type Props = {
   points?: GlobePoint[];
   height?: string;
+  /**
+   * Initial camera distance from the globe center. User can still zoom in
+   * down to minDistance (1.35) or out to maxDistance (5).
+   * - 2.7 = decorative tight framing (home hero default)
+   * - 3.6 = mid framing for mini-globes on profile / sku pages
+   * - 4.2 = far framing for the full Atlas, forces user to zoom in
+   */
+  cameraDistance?: number;
 };
 
 function latLngToVec3(
@@ -166,7 +174,11 @@ function Atmosphere() {
   );
 }
 
-export function Globe({ points = [], height = "min(80vh, 700px)" }: Props) {
+export function Globe({
+  points = [],
+  height = "min(80vh, 700px)",
+  cameraDistance = 2.7,
+}: Props) {
   // Auto-rotation runs until the first user interaction (drag, zoom, click)
   // and then stays off for the rest of the session — easier to click points
   // on a still globe than a moving one.
@@ -198,7 +210,7 @@ export function Globe({ points = [], height = "min(80vh, 700px)" }: Props) {
       role="img"
     >
       <Canvas
-        camera={{ position: [0, 0, 2.7], fov: 42 }}
+        camera={{ position: [0, 0, cameraDistance], fov: 42 }}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
         dpr={[1, 2]}
       >

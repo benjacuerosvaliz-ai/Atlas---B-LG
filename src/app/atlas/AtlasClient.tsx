@@ -3,6 +3,7 @@
 import { Radio, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { BolgWordmark } from "@/components/bolg-wordmark";
 import { Globe, type GlobePoint } from "@/components/globe/Globe";
 import { createClient } from "@/lib/supabase/client";
 import { ACTIVITY_LABELS, type ActivityType } from "@/app/trip/new/types";
@@ -201,14 +202,7 @@ export function AtlasClient({ initialTrips, catalog }: Props) {
     <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
       {/* Header bar */}
       <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-6 py-4 md:px-10 md:py-5">
-        <Link href="/" className="flex items-baseline gap-3">
-          <span className="font-display text-xl font-black leading-none tracking-tight md:text-2xl">
-            BØLG
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/55">
-            Atlas
-          </span>
-        </Link>
+        <BolgWordmark href="/" />
         <div className="flex items-center gap-3">
           {pulseAt > 0 && (
             <span className="flex items-center gap-1.5 border border-aurora/60 bg-aurora/[0.08] px-2.5 py-1 text-[10px] uppercase tracking-[0.28em] text-aurora">
@@ -229,7 +223,7 @@ export function AtlasClient({ initialTrips, catalog }: Props) {
       </header>
 
       {/* Globe full screen */}
-      <Globe points={points} height="100dvh" />
+      <Globe points={points} height="100dvh" cameraDistance={4.2} />
 
       {/* HUD: stats + filters, glassmorphic, top-left, mobile-friendly */}
       <div className="pointer-events-none absolute left-0 right-0 bottom-0 z-20 flex flex-col gap-3 px-4 pb-6 md:left-6 md:right-auto md:bottom-6 md:max-w-xs md:px-0 md:pb-0">

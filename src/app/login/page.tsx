@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { BolgWordmark } from "@/components/bolg-wordmark";
 import { LoginForm } from "./LoginForm";
 
 export const metadata: Metadata = {
@@ -12,14 +12,7 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <header className="px-6 py-5 md:px-10 md:py-7">
-        <Link href="/" className="flex items-baseline gap-3">
-          <span className="font-display text-xl font-black leading-none tracking-tight md:text-2xl">
-            BØLG
-          </span>
-          <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/50">
-            Atlas
-          </span>
-        </Link>
+        <BolgWordmark href="/" />
       </header>
 
       <main className="flex flex-1 items-center justify-center px-6 pb-24">
