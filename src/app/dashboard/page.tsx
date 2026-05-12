@@ -126,25 +126,29 @@ export default async function DashboardPage() {
             <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
               Tu Gear BØLG
             </span>
-            <ul className="flex flex-wrap items-center gap-2.5">
+            <ul className="flex flex-wrap gap-x-4 gap-y-3">
               {gear.map((m) => (
-                <li key={m.id}>
+                <li key={m.id} className="w-[80px]">
                   <a
                     href={m.product_url ?? "#"}
                     target={m.product_url ? "_blank" : undefined}
                     rel="noopener noreferrer"
-                    title={m.name}
-                    className="block h-[50px] w-[50px] overflow-hidden bg-fog opacity-65 hover:opacity-100 transition-opacity"
+                    className="group flex flex-col gap-1.5"
                   >
-                    {m.hero_image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={m.hero_image_url}
-                        alt={m.name}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : null}
+                    <div className="h-[80px] w-[80px] overflow-hidden bg-fog opacity-80 transition-opacity group-hover:opacity-100">
+                      {m.hero_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.hero_image_url}
+                          alt={m.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : null}
+                    </div>
+                    <span className="block text-[11px] leading-tight text-foreground/65 group-hover:text-foreground transition-colors">
+                      {m.name}
+                    </span>
                   </a>
                 </li>
               ))}
