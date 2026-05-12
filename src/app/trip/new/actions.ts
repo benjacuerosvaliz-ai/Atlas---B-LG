@@ -25,8 +25,13 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
   if (data.endAt && data.startAt && data.endAt < data.startAt) {
     return { error: "La fecha de fin no puede ser anterior a la de inicio." };
   }
+  if (data.claimedModelIds.length > 0 && data.photos.length === 0) {
+    return {
+      error:
+        "Para asociar productos necesitamos al menos 1 foto del viaje como evidencia.",
+    };
+  }
 
-  // Aggregate country codes from start + end (if present), unique.
   const countryCodes = Array.from(
     new Set(
       [data.startPlace.countryCode, data.endPlace?.countryCode].filter(
@@ -34,10 +39,6 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
       ),
     ),
   );
-
-  // geom (PostGIS LineString) is left NULL for manually-entered trips. We
-  // populate it in Sesión 4-5 once GPS imports land — for now distance_km
-  // is the canonical metric.
 
   const { data: inserted, error: insertErr } = await supabase
     .from("trips")
@@ -59,7 +60,7 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
       country_codes: countryCodes.length > 0 ? countryCodes : null,
       activity_type: data.activityType,
       visibility: "public",
-      counts_for_bolg: data.productIds.length > 0,
+      counts_for_bolg: data.claimedModelIds.length > 0,
       is_validated: true,
       validation_method: "manual",
     })
@@ -84,14 +85,32 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     if (photoErr) console.error("[createTrip] trip_photos", photoErr);
   }
 
-  if (data.productIds.length > 0) {
-    const { error: prodErr } = await supabase.from("trip_products").insert(
-      data.productIds.map((pid) => ({
-        trip_id: tripId,
-        product_id: pid,
-      })),
-    );
-    if (prodErr) console.error("[createTrip] trip_products", prodErr);
+  if (data.claimedModelIds.length > 0) {
+    // Per-trip claims.
+    const { error: tripClaimErr } = await supabase
+      .from("trip_claimed_models")
+      .insert(
+        data.claimedModelIds.map((modelId) => ({
+          trip_id: tripId,
+          model_id: modelId,
+        })),
+      );
+    if (tripClaimErr)
+      console.error("[createTrip] trip_claimed_models", tripClaimErr);
+
+    // Grow the user's durable collection (idempotent — primary key handles
+    // dedupe; conflicts are silently ignored).
+    const { error: collectionErr } = await supabase
+      .from("user_claimed_models")
+      .upsert(
+        data.claimedModelIds.map((modelId) => ({
+          user_id: user.id,
+          model_id: modelId,
+        })),
+        { onConflict: "user_id,model_id", ignoreDuplicates: true },
+      );
+    if (collectionErr)
+      console.error("[createTrip] user_claimed_models", collectionErr);
   }
 
   revalidatePath("/dashboard");

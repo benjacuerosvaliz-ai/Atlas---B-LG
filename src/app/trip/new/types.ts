@@ -22,18 +22,25 @@ export type TripFormData = {
   distanceKm?: number;
   elevationGainM?: number;
   photos: UploadedAsset[];
-  productIds: string[];
+  /** Self-claimed model IDs ("Viajé con este Oslo"). Each requires the trip
+   *  to have at least one photo as evidence. */
+  claimedModelIds: string[];
 };
 
-export type OwnedProduct = {
+export type ProductModelLite = {
   id: string;
-  givenName: string | null;
-  modelName: string;
+  name: string;
+  category: string | null;
+  heroImageUrl: string | null;
+  productUrl: string | null;
+  /** True when the user already has this model in their collection (from a
+   *  previous trip's claim). Lets the UI surface "already in your gear". */
+  alreadyOwned: boolean;
 };
 
 export const EMPTY_FORM: TripFormData = {
   photos: [],
-  productIds: [],
+  claimedModelIds: [],
 };
 
 export const ACTIVITY_LABELS: Record<ActivityType, string> = {

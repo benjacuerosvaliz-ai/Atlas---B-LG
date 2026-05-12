@@ -10,7 +10,7 @@ import { StepPhotos } from "./steps/StepPhotos";
 import { StepPlace } from "./steps/StepPlace";
 import { StepPreview } from "./steps/StepPreview";
 import { StepProducts } from "./steps/StepProducts";
-import { EMPTY_FORM, type OwnedProduct, type TripFormData } from "./types";
+import { EMPTY_FORM, type ProductModelLite, type TripFormData } from "./types";
 
 const STEPS = [
   { id: "place", label: "Lugar" },
@@ -21,9 +21,9 @@ const STEPS = [
   { id: "preview", label: "Revisar" },
 ] as const;
 
-type Props = { products: OwnedProduct[] };
+type Props = { catalog: ProductModelLite[] };
 
-export function TripWizard({ products }: Props) {
+export function TripWizard({ catalog }: Props) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<TripFormData>(EMPTY_FORM);
   const [isPending, startTransition] = useTransition();
@@ -71,9 +71,9 @@ export function TripWizard({ products }: Props) {
           {step === 2 && <StepActivity data={data} patch={patch} />}
           {step === 3 && <StepPhotos data={data} patch={patch} />}
           {step === 4 && (
-            <StepProducts data={data} patch={patch} products={products} />
+            <StepProducts data={data} patch={patch} catalog={catalog} />
           )}
-          {step === 5 && <StepPreview data={data} products={products} />}
+          {step === 5 && <StepPreview data={data} catalog={catalog} />}
         </motion.div>
       </AnimatePresence>
 
@@ -149,12 +149,26 @@ function isStepComplete(step: number, data: TripFormData): boolean {
     case 1:
       return !!data.startAt;
     case 2:
-      return !!data.activityType && typeof data.distanceKm === "number" && data.distanceKm >= 0;
+      return (
+        !!data.activityType &&
+        typeof data.distanceKm === "number" &&
+        data.distanceKm >= 0
+      );
     case 3:
+      return true; // photos optional
     case 4:
-      return true; // both optional
+      // If user claimed any model, require >=1 photo as evidence.
+      if (data.claimedModelIds.length > 0 && data.photos.length === 0) {
+        return false;
+      }
+      return true;
     case 5:
-      return !!data.startPlace && !!data.startAt && !!data.activityType;
+      return (
+        !!data.startPlace &&
+        !!data.startAt &&
+        !!data.activityType &&
+        (data.claimedModelIds.length === 0 || data.photos.length > 0)
+      );
     default:
       return false;
   }

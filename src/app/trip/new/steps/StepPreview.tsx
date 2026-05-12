@@ -2,15 +2,19 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { ACTIVITY_LABELS, type OwnedProduct, type TripFormData } from "../types";
+import {
+  ACTIVITY_LABELS,
+  type ProductModelLite,
+  type TripFormData,
+} from "../types";
 
 type Props = {
   data: TripFormData;
-  products: OwnedProduct[];
+  catalog: ProductModelLite[];
 };
 
-export function StepPreview({ data, products }: Props) {
-  const productsTagged = products.filter((p) => data.productIds.includes(p.id));
+export function StepPreview({ data, catalog }: Props) {
+  const claimed = catalog.filter((m) => data.claimedModelIds.includes(m.id));
 
   return (
     <div className="flex flex-col gap-10">
@@ -27,9 +31,7 @@ export function StepPreview({ data, products }: Props) {
         <Row label="Inicio">
           {data.startPlace ? data.startPlace.name : "—"}
         </Row>
-        {data.endPlace && (
-          <Row label="Destino">{data.endPlace.name}</Row>
-        )}
+        {data.endPlace && <Row label="Destino">{data.endPlace.name}</Row>}
         <Row label="Fecha">
           {data.startAt
             ? format(new Date(data.startAt), "d 'de' MMMM, yyyy", { locale: es })
@@ -55,17 +57,17 @@ export function StepPreview({ data, products }: Props) {
         <Row label="Fotos">
           <span className="font-mono">{data.photos.length} subidas</span>
         </Row>
-        <Row label="BØLG vinculados">
-          {productsTagged.length === 0 ? (
+        <Row label="BØLG tageados">
+          {claimed.length === 0 ? (
             <span className="text-foreground/40">Ninguno</span>
           ) : (
             <span className="flex flex-wrap gap-2">
-              {productsTagged.map((p) => (
+              {claimed.map((m) => (
                 <span
-                  key={p.id}
+                  key={m.id}
                   className="border border-border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em]"
                 >
-                  {p.givenName ?? p.modelName}
+                  {m.name}
                 </span>
               ))}
             </span>

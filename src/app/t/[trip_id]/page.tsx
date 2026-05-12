@@ -39,11 +39,29 @@ export default async function TripPage({ params }: Props) {
 
   if (!trip) notFound();
 
-  const { data: photos } = await supabase
-    .from("trip_photos")
-    .select("url, ordering")
-    .eq("trip_id", trip_id)
-    .order("ordering");
+  const [{ data: photos }, { data: claimed }] = await Promise.all([
+    supabase
+      .from("trip_photos")
+      .select("url, ordering")
+      .eq("trip_id", trip_id)
+      .order("ordering"),
+    supabase
+      .from("trip_claimed_models")
+      .select("model_id, product_models(id, name, hero_image_url, product_url)")
+      .eq("trip_id", trip_id),
+  ]);
+
+  type ClaimedRow = {
+    product_models: {
+      id: string;
+      name: string;
+      hero_image_url: string | null;
+      product_url: string | null;
+    } | null;
+  };
+  const claimedModels = ((claimed ?? []) as unknown as ClaimedRow[])
+    .map((r) => r.product_models)
+    .filter((m): m is NonNullable<ClaimedRow["product_models"]> => Boolean(m));
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -126,11 +144,46 @@ export default async function TripPage({ params }: Props) {
           </section>
         )}
 
+        {claimedModels.length > 0 && (
+          <section className="mx-auto flex w-full max-w-3xl flex-col gap-5 border-t border-border pt-8">
+            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+              BØLG en este viaje
+            </span>
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {claimedModels.map((m) => (
+                <li key={m.id}>
+                  <a
+                    href={m.product_url ?? "#"}
+                    target={m.product_url ? "_blank" : undefined}
+                    rel="noopener noreferrer"
+                    className="group flex flex-col gap-2"
+                  >
+                    <div className="aspect-square overflow-hidden bg-fog">
+                      {m.hero_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.hero_image_url}
+                          alt={m.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="h-full w-full" />
+                      )}
+                    </div>
+                    <span className="text-sm leading-tight">{m.name}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="mx-auto w-full max-w-3xl border-t border-border pt-6">
           <p className="font-mono text-xs text-foreground/45">
-            Página completa de viaje (mapa, ruta, productos vinculados, likes,
-            comentarios) llega en Sesión 4-6. Este es el placeholder mínimo
-            que confirma que la persistencia funciona.
+            Página completa de viaje (mapa, ruta, likes, comentarios) llega en
+            Sesión 4-6. Este es el placeholder que confirma persistencia +
+            claims.
           </p>
         </section>
       </main>

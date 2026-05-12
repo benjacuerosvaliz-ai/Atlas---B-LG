@@ -19,19 +19,43 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const [{ data: profile }, { data: trips }] = await Promise.all([
-    supabase
-      .from("users")
-      .select("username, display_name, total_km, level")
-      .eq("id", user.id)
-      .single(),
-    supabase
-      .from("trips")
-      .select("id, title, start_place_name, end_place_name, start_at, distance_km, activity_type, cover_photo_url")
-      .eq("user_id", user.id)
-      .order("start_at", { ascending: false })
-      .limit(6),
-  ]);
+  const [{ data: profile }, { data: trips }, { data: collection }] =
+    await Promise.all([
+      supabase
+        .from("users")
+        .select("username, display_name, total_km, level")
+        .eq("id", user.id)
+        .single(),
+      supabase
+        .from("trips")
+        .select(
+          "id, title, start_place_name, end_place_name, start_at, distance_km, activity_type, cover_photo_url",
+        )
+        .eq("user_id", user.id)
+        .order("start_at", { ascending: false })
+        .limit(6),
+      supabase
+        .from("user_claimed_models")
+        .select(
+          "first_claimed_at, product_models(id, name, hero_image_url, product_url)",
+        )
+        .eq("user_id", user.id)
+        .order("first_claimed_at", { ascending: false }),
+    ]);
+
+  type CollectionRow = {
+    product_models: {
+      id: string;
+      name: string;
+      hero_image_url: string | null;
+      product_url: string | null;
+    } | null;
+  };
+  const gear = ((collection ?? []) as unknown as CollectionRow[])
+    .map((r) => r.product_models)
+    .filter((m): m is NonNullable<CollectionRow["product_models"]> =>
+      Boolean(m),
+    );
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -70,6 +94,39 @@ export default async function DashboardPage() {
             {(profile?.total_km ?? 0).toLocaleString("es-CL")} km
           </p>
         </section>
+
+        {gear.length > 0 && (
+          <section className="flex flex-col gap-5 border-t border-border pt-8">
+            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+              Tu gear · {gear.length} {gear.length === 1 ? "producto" : "productos"}
+            </span>
+            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5 md:grid-cols-6">
+              {gear.map((m) => (
+                <li key={m.id}>
+                  <a
+                    href={m.product_url ?? "#"}
+                    target={m.product_url ? "_blank" : undefined}
+                    rel="noopener noreferrer"
+                    className="group flex flex-col gap-2"
+                  >
+                    <div className="aspect-square overflow-hidden bg-fog">
+                      {m.hero_image_url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.hero_image_url}
+                          alt={m.name}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                          loading="lazy"
+                        />
+                      ) : null}
+                    </div>
+                    <span className="text-xs leading-tight">{m.name}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         <section className="flex flex-col gap-6 border-t border-border pt-8">
           <div className="flex items-baseline justify-between">

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TripWizard } from "./TripWizard";
+import type { ProductModelLite } from "./types";
 
 export const metadata: Metadata = {
   title: "Nuevo viaje",
@@ -17,19 +18,30 @@ export default async function NewTripPage() {
 
   if (!user) redirect("/login?next=/trip/new");
 
-  // The user's currently-owned products (for Step 5). Empty in early
-  // sessions until QR vinculation lands.
-  const { data: ownedProducts } = await supabase
-    .from("products")
-    .select("id, given_name, model_id, product_models(name)")
-    .eq("current_owner_id", user.id)
-    .eq("status", "active");
+  // Load the full catalog (hero image + product URL) and the user's
+  // current collection in parallel. The wizard renders all models as a
+  // catalog grid; rows the user already claimed get an "already in your
+  // gear" hint.
+  const [{ data: models }, { data: claimed }] = await Promise.all([
+    supabase
+      .from("product_models")
+      .select("id, name, category, hero_image_url, product_url")
+      .order("name"),
+    supabase
+      .from("user_claimed_models")
+      .select("model_id")
+      .eq("user_id", user.id),
+  ]);
 
-  const products = (ownedProducts ?? []).map((p) => ({
-    id: p.id as string,
-    givenName: (p.given_name as string | null) ?? null,
-    modelName:
-      (p.product_models as unknown as { name: string } | null)?.name ?? "",
+  const ownedSet = new Set((claimed ?? []).map((r) => r.model_id as string));
+
+  const catalog: ProductModelLite[] = (models ?? []).map((m) => ({
+    id: m.id as string,
+    name: m.name as string,
+    category: (m.category as string | null) ?? null,
+    heroImageUrl: (m.hero_image_url as string | null) ?? null,
+    productUrl: (m.product_url as string | null) ?? null,
+    alreadyOwned: ownedSet.has(m.id as string),
   }));
 
   return (
@@ -52,7 +64,7 @@ export default async function NewTripPage() {
       </header>
 
       <main className="flex flex-1 justify-center px-6 pb-24 pt-4 md:px-10">
-        <TripWizard products={products} />
+        <TripWizard catalog={catalog} />
       </main>
     </div>
   );
