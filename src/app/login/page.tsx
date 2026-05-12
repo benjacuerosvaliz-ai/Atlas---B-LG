@@ -1,3 +1,4 @@
+import { AlertCircle } from "lucide-react";
 import type { Metadata } from "next";
 import { BolgWordmark } from "@/components/bolg-wordmark";
 import { LoginForm } from "./LoginForm";
@@ -8,7 +9,18 @@ export const metadata: Metadata = {
     "Entra a BØLG Atlas con tu correo. Te enviamos un enlace de acceso, sin contraseñas.",
 };
 
-export default function LoginPage() {
+type Props = {
+  searchParams: Promise<{ error?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: Props) {
+  const { error } = await searchParams;
+  // Best-effort plain-Spanish translation for the most common Supabase
+  // verifyOtp errors. Everything else falls through to the raw message.
+  const friendlyError = error
+    ? translateAuthError(decodeURIComponent(error))
+    : null;
+
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
       <header className="px-6 py-5 md:px-10 md:py-7">
@@ -30,9 +42,38 @@ export default function LoginPage() {
             </p>
           </div>
 
+          {friendlyError && (
+            <div className="flex items-start gap-3 border border-destructive/40 bg-destructive/[0.06] px-4 py-3">
+              <AlertCircle
+                className="mt-0.5 h-4 w-4 shrink-0 text-destructive"
+                aria-hidden
+              />
+              <p className="font-mono text-xs leading-relaxed text-foreground/80">
+                {friendlyError}
+              </p>
+            </div>
+          )}
+
           <LoginForm />
         </div>
       </main>
     </div>
   );
+}
+
+function translateAuthError(raw: string): string {
+  const lower = raw.toLowerCase();
+  if (lower.includes("missing_token") || lower.includes("missing token")) {
+    return "El enlace que abriste no trae token. Pide uno nuevo.";
+  }
+  if (lower.includes("expired")) {
+    return "El enlace expiró. Pide uno nuevo escribiendo tu correo abajo.";
+  }
+  if (lower.includes("invalid") || lower.includes("not found")) {
+    return "Ese enlace ya fue usado o no es válido. Pide uno nuevo.";
+  }
+  if (lower.includes("code challenge") || lower.includes("verifier")) {
+    return "Este enlace usa un flujo antiguo. Pedile uno nuevo desde acá — los nuevos correos ya están en el flujo correcto.";
+  }
+  return `No pudimos completar tu acceso: ${raw}`;
 }
