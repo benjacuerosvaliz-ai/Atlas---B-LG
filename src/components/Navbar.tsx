@@ -12,12 +12,20 @@ export function Navbar() {
             Atlas
           </span>
         </Link>
-        <Link
-          href="#waitlist"
-          className="text-[10px] uppercase tracking-[0.32em] text-foreground/60 hover:text-foreground transition-colors"
-        >
-          Ingresar
-        </Link>
+        <nav className="flex items-center gap-5">
+          <Link
+            href="/atlas"
+            className="text-[10px] uppercase tracking-[0.32em] text-foreground/60 hover:text-foreground transition-colors"
+          >
+            Atlas global
+          </Link>
+          <Link
+            href="#waitlist"
+            className="text-[10px] uppercase tracking-[0.32em] text-foreground/60 hover:text-foreground transition-colors"
+          >
+            Ingresar
+          </Link>
+        </nav>
       </div>
     </header>
   );
