@@ -10,6 +10,7 @@ export type SettingsState = {
 };
 
 const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
+const INSTAGRAM_RE = /^[a-z0-9._]{1,30}$/;
 
 export async function updateProfile(
   _prev: SettingsState,
@@ -25,6 +26,9 @@ export async function updateProfile(
   const displayName = String(formData.get("display_name") ?? "").trim();
   const bio = String(formData.get("bio") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
+  // Instagram: strip a leading @ if the user pasted one; normalize to lowercase.
+  const instagramRaw = String(formData.get("instagram_handle") ?? "").trim();
+  const instagram = instagramRaw.replace(/^@/, "").toLowerCase();
 
   if (!USERNAME_RE.test(username)) {
     return {
@@ -42,6 +46,13 @@ export async function updateProfile(
   if (bio.length > 280) {
     return { status: "error", message: "La bio supera los 280 caracteres." };
   }
+  if (instagram && !INSTAGRAM_RE.test(instagram)) {
+    return {
+      status: "error",
+      message:
+        "Handle de Instagram inválido. Solo letras, números, puntos y guión bajo (sin @).",
+    };
+  }
 
   const { error } = await supabase
     .from("users")
@@ -50,6 +61,7 @@ export async function updateProfile(
       display_name: displayName,
       bio: bio || null,
       city: city || null,
+      instagram_handle: instagram || null,
     })
     .eq("id", user.id);
 

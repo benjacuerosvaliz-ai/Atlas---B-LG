@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PencilLine } from "lucide-react";
+import { Instagram, PencilLine } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -25,7 +25,7 @@ export default async function DashboardPage() {
     await Promise.all([
       supabase
         .from("users")
-        .select("username, display_name, total_km, level")
+        .select("username, display_name, total_km, level, instagram_handle")
         .eq("id", user.id)
         .single(),
       supabase
@@ -99,41 +99,52 @@ export default async function DashboardPage() {
               {(profile?.total_km ?? 0).toLocaleString("es-CL")} km
             </span>
           </p>
-          <Link
-            href="/settings"
-            className="mt-1 flex items-center gap-1.5 self-start text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
-          >
-            <PencilLine className="h-3 w-3" aria-hidden />
-            Editar perfil
-          </Link>
+          <div className="mt-1 flex items-center gap-5">
+            <Link
+              href="/settings"
+              className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
+            >
+              <PencilLine className="h-3 w-3" aria-hidden />
+              Editar perfil
+            </Link>
+            {profile?.instagram_handle && (
+              <a
+                href={`https://instagram.com/${profile.instagram_handle}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
+              >
+                <Instagram className="h-3 w-3" aria-hidden />
+                @{profile.instagram_handle}
+              </a>
+            )}
+          </div>
         </section>
 
         {gear.length > 0 && (
-          <section className="flex flex-col gap-5 border-t border-border pt-8">
-            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-              Tu gear · {gear.length} {gear.length === 1 ? "producto" : "productos"}
+          <section className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
+            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/35">
+              Tu gear
             </span>
-            <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5 md:grid-cols-6">
+            <ul className="flex flex-wrap items-center gap-2">
               {gear.map((m) => (
                 <li key={m.id}>
                   <a
                     href={m.product_url ?? "#"}
                     target={m.product_url ? "_blank" : undefined}
                     rel="noopener noreferrer"
-                    className="group flex flex-col gap-2"
+                    title={m.name}
+                    className="block h-10 w-10 overflow-hidden bg-fog opacity-50 hover:opacity-100 transition-opacity"
                   >
-                    <div className="aspect-square overflow-hidden bg-fog">
-                      {m.hero_image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={m.hero_image_url}
-                          alt={m.name}
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                          loading="lazy"
-                        />
-                      ) : null}
-                    </div>
-                    <span className="text-xs leading-tight">{m.name}</span>
+                    {m.hero_image_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={m.hero_image_url}
+                        alt={m.name}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : null}
                   </a>
                 </li>
               ))}

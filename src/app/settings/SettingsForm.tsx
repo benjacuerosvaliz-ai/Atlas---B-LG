@@ -11,6 +11,7 @@ type Props = {
   initialUsername: string;
   initialBio: string;
   initialCity: string;
+  initialInstagram: string;
   email: string;
 };
 
@@ -19,6 +20,7 @@ export function SettingsForm({
   initialUsername,
   initialBio,
   initialCity,
+  initialInstagram,
   email,
 }: Props) {
   const [state, formAction, isPending] = useActionState(
@@ -80,6 +82,20 @@ export function SettingsForm({
           defaultValue={initialCity}
           autoComplete="address-level2"
           placeholder="Santiago"
+          className={inputCls}
+        />
+      </Field>
+
+      <Field
+        label="Instagram"
+        hint="Tu handle (sin @). Aparece como link discreto en tu perfil."
+      >
+        <input
+          name="instagram_handle"
+          type="text"
+          maxLength={30}
+          defaultValue={initialInstagram}
+          placeholder="bolgconcept"
           className={inputCls}
         />
       </Field>
