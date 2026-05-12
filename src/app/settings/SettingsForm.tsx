@@ -30,7 +30,7 @@ export function SettingsForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-8">
-      <Field label="Nombre" hint="Lo que ven los demás en tu perfil." required>
+      <Field label="Nombre" hint="Tu nombre como quieres aparecer." required>
         <input
           name="display_name"
           type="text"
@@ -45,8 +45,8 @@ export function SettingsForm({
       </Field>
 
       <Field
-        label="Username"
-        hint="Tu handle en el Atlas. Minúsculas, números y guión bajo. Entre 3 y 30 caracteres."
+        label="Nombre de usuario"
+        hint="Sin espacios. Solo minúsculas, números y guión bajo."
         required
       >
         <input
@@ -74,7 +74,7 @@ export function SettingsForm({
         />
       </Field>
 
-      <Field label="Ciudad" hint="Opcional. Ayuda a otros a ubicarte.">
+      <Field label="Ciudad" hint="Opcional. Para ubicarte en el mapa.">
         <input
           name="city"
           type="text"
@@ -88,7 +88,7 @@ export function SettingsForm({
 
       <Field
         label="Instagram"
-        hint="Tu handle (sin @). Aparece como link discreto en tu perfil."
+        hint="Opcional. Tu nombre de Instagram, sin el @."
       >
         <input
           name="instagram_handle"
@@ -100,7 +100,7 @@ export function SettingsForm({
         />
       </Field>
 
-      <Field label="Correo" hint="No editable desde acá. Asociado a tu cuenta.">
+      <Field label="Correo" hint="No editable. Está asociado a tu cuenta.">
         <input
           type="email"
           value={email}

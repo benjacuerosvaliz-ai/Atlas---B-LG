@@ -56,10 +56,10 @@ export default async function OnboardingPage() {
         <div className="flex w-full max-w-2xl flex-col gap-10">
           <div className="flex flex-col gap-4">
             <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/40">
-              Bienvenido al Atlas
+              Bienvenido al Atlas BØLG
             </span>
             <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
-              Antes de empezar, contale al Atlas quién eres.
+              Antes de empezar, cuéntale al Atlas BØLG quién eres.
             </h1>
             <p className="text-base leading-relaxed text-foreground/65">
               60 segundos. Después subimos tu primer viaje juntos.

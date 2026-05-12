@@ -45,7 +45,7 @@ export function OnboardingForm({ initialDisplayName, catalog }: Props) {
           Tu identidad
         </span>
 
-        <Field label="Nombre" hint="Lo que ven los demás en tu perfil." required>
+        <Field label="Nombre" hint="Tu nombre como quieres aparecer." required>
           <input
             name="display_name"
             type="text"
@@ -60,8 +60,8 @@ export function OnboardingForm({ initialDisplayName, catalog }: Props) {
         </Field>
 
         <Field
-          label="Username"
-          hint="Tu handle en el Atlas — vivirá en atlas-bolg.vercel.app/u/tu-username. Minúsculas, números y guión bajo."
+          label="Nombre de usuario"
+          hint="Sin espacios. Solo minúsculas, números y guión bajo."
           required
         >
           <input
@@ -78,7 +78,7 @@ export function OnboardingForm({ initialDisplayName, catalog }: Props) {
           />
         </Field>
 
-        <Field label="Ciudad" hint="Opcional. Sale en tu perfil público.">
+        <Field label="Ciudad" hint="Opcional. Para ubicarte en el mapa.">
           <input
             name="city"
             type="text"
@@ -91,7 +91,7 @@ export function OnboardingForm({ initialDisplayName, catalog }: Props) {
 
         <Field
           label="Instagram"
-          hint="Opcional. Tu handle (sin @). Aparece como link discreto."
+          hint="Opcional. Tu nombre de Instagram, sin el @."
         >
           <input
             name="instagram_handle"
