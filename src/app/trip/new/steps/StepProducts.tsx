@@ -40,9 +40,9 @@ export function StepProducts({ data, patch, catalog }: Props) {
           ¿Qué te llevaste?
         </h2>
         <p className="max-w-lg text-base leading-relaxed text-foreground/60">
-          Tageá los que estuvieron contigo — sus kilómetros suman a tu gear y
-          quedan registrados en su historial. Lo que no tenés, podés mandarte
-          a la tienda directo.
+          Marca los que estuvieron contigo — sus kilómetros suman a tu gear y
+          quedan registrados en su historial. Lo que no tienes, lo puedes
+          mandar derecho a la tienda.
         </p>
       </div>
 
@@ -52,8 +52,8 @@ export function StepProducts({ data, patch, catalog }: Props) {
             Necesitás al menos 1 foto del viaje
           </span>
           <p className="font-mono text-xs leading-relaxed text-foreground/65">
-            Para sumar productos pedimos foto-evidencia. Volvé al paso anterior
-            y subí una. Sin ella podés saltar este paso, pero los tags quedan
+            Para sumar productos pedimos foto-evidencia. Vuelve al paso anterior
+            y sube una. Sin ella puedes saltar este paso, pero las marcas quedan
             sin efecto.
           </p>
         </div>
@@ -122,7 +122,7 @@ export function StepProducts({ data, patch, catalog }: Props) {
                       !hasPhotos && "opacity-30 cursor-not-allowed hover:border-border",
                     )}
                   >
-                    {selected ? "Tageado ✓" : "Viajé con este"}
+                    {selected ? "Marcado ✓" : "Viajé con este"}
                   </button>
                   {m.productUrl && !m.alreadyOwned && (
                     <a
@@ -144,7 +144,7 @@ export function StepProducts({ data, patch, catalog }: Props) {
 
       {catalog.length === 0 && (
         <p className="font-mono text-xs text-foreground/45">
-          El catálogo aún no se cargó. Recargá la página o avísame.
+          El catálogo aún no se cargó. Recarga la página o avísame.
         </p>
       )}
     </div>

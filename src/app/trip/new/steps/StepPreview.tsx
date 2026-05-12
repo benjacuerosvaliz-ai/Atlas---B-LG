@@ -23,7 +23,7 @@ export function StepPreview({ data, catalog }: Props) {
           Último vistazo
         </span>
         <h2 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
-          Revisá antes de publicar.
+          Revisa antes de publicar.
         </h2>
       </div>
 

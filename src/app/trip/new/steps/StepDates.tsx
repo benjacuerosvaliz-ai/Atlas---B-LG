@@ -41,7 +41,7 @@ export function StepDates({ data, patch }: Props) {
           Las fechas que lo cuentan.
         </h2>
         <p className="max-w-md text-base leading-relaxed text-foreground/60">
-          Inicio obligatorio. Si fue un viaje de varios días, marcá también el
+          Inicio obligatorio. Si fue un viaje de varios días, marca también el
           fin — pintamos el cuadrito completo en tu timeline.
         </p>
       </div>

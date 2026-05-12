@@ -19,7 +19,7 @@ export function StepPlace({ data, patch }: Props) {
           Empieza por el lugar.
         </h2>
         <p className="max-w-md text-base leading-relaxed text-foreground/60">
-          Mínimo el punto de inicio. Si tu viaje cruzó países o ciudades, sumá
+          Mínimo el punto de inicio. Si tu viaje cruzó países o ciudades, suma
           el destino — calculamos los kilómetros automáticamente.
         </p>
       </div>

@@ -13,7 +13,7 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { error: "Tu sesión expiró. Volvé a entrar." };
+  if (!user) return { error: "Tu sesión expiró. Vuelve a entrar." };
 
   // Server-side re-validation. Never trust the client wizard alone.
   if (!data.startPlace) return { error: "Falta el lugar de inicio." };

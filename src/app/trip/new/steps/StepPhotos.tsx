@@ -98,7 +98,7 @@ export function StepPhotos({ data, patch }: Props) {
       >
         <ImageIcon className="h-6 w-6 text-foreground/50" aria-hidden />
         <p className="text-center text-sm text-foreground/70">
-          Arrastrá tus fotos o click para elegir
+          Arrastra tus fotos o haz click para elegir
         </p>
         <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/40">
           {data.photos.length} / {MAX_PHOTOS} subidas

@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { PencilLine } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { levels } from "@/lib/tokens";
 import { signOut } from "../login/actions";
 
 export const metadata: Metadata = {
@@ -91,8 +93,19 @@ export default async function DashboardPage() {
             <span className="px-2">·</span>
             Nivel {profile?.level ?? 1}
             <span className="px-2">·</span>
-            {(profile?.total_km ?? 0).toLocaleString("es-CL")} km
+            {levels.find((l) => l.id === (profile?.level ?? 1))?.title ?? ""}
+            <span className="px-2">·</span>
+            <span className="tabular-nums">
+              {(profile?.total_km ?? 0).toLocaleString("es-CL")} km
+            </span>
           </p>
+          <Link
+            href="/settings"
+            className="mt-1 flex items-center gap-1.5 self-start text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
+          >
+            <PencilLine className="h-3 w-3" aria-hidden />
+            Editar perfil
+          </Link>
         </section>
 
         {gear.length > 0 && (
@@ -143,8 +156,8 @@ export default async function DashboardPage() {
 
           {!trips || trips.length === 0 ? (
             <p className="max-w-md font-mono text-sm leading-relaxed text-foreground/55">
-              Aún no subiste ningún viaje. Empezá por el primero — Pucón, el
-              Cajón del Maipo, una caminata por La Reina. Lo que sea cuenta.
+              Aún no has subido ningún viaje. Empieza por el primero — Pucón,
+              el Cajón del Maipo, una caminata por La Reina. Lo que sea cuenta.
             </p>
           ) : (
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
