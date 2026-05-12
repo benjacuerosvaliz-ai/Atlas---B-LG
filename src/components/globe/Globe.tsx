@@ -52,12 +52,12 @@ type PointHandlers = {
 };
 
 function Earth({
-  paused,
+  spinning,
   points,
   handlers,
   pinnedKey,
 }: {
-  paused: boolean;
+  spinning: boolean;
   points: GlobePoint[];
   handlers: PointHandlers;
   pinnedKey: string | null;
@@ -71,7 +71,7 @@ function Earth({
   }, [colorMap]);
 
   useFrame((_, delta) => {
-    if (!paused && groupRef.current) {
+    if (spinning && groupRef.current) {
       groupRef.current.rotation.y += (delta * Math.PI * 2) / ROTATION_PERIOD_SEC;
     }
   });
@@ -167,14 +167,20 @@ function Atmosphere() {
 }
 
 export function Globe({ points = [], height = "min(80vh, 700px)" }: Props) {
-  const [paused, setPaused] = useState(false);
+  // Auto-rotation runs until the first user interaction (drag, zoom, click)
+  // and then stays off for the rest of the session — easier to click points
+  // on a still globe than a moving one.
+  const [spinning, setSpinning] = useState(true);
   const [hovered, setHovered] = useState<GlobePoint | null>(null);
   const [pinned, setPinned] = useState<GlobePoint | null>(null);
 
   const handlers: PointHandlers = {
     onHover: (p) => setHovered(p),
     onLeave: () => setHovered(null),
-    onPick: (p) => setPinned(p),
+    onPick: (p) => {
+      setSpinning(false);
+      setPinned(p);
+    },
   };
 
   const hasInteractive = points.some(
@@ -201,7 +207,7 @@ export function Globe({ points = [], height = "min(80vh, 700px)" }: Props) {
         <directionalLight position={[-5, -2, -3]} intensity={0.18} color="#5bc0be" />
         <Suspense fallback={null}>
           <Earth
-            paused={paused}
+            spinning={spinning}
             points={points}
             handlers={handlers}
             pinnedKey={pinnedKey}
@@ -218,8 +224,7 @@ export function Globe({ points = [], height = "min(80vh, 700px)" }: Props) {
           rotateSpeed={0.45}
           enableDamping
           dampingFactor={0.08}
-          onStart={() => setPaused(true)}
-          onEnd={() => setPaused(false)}
+          onStart={() => setSpinning(false)}
         />
       </Canvas>
 

@@ -100,6 +100,10 @@ function DateField({
             disabled={(d) =>
               (minDate ? d < minDate : false) || d > new Date()
             }
+            captionLayout="dropdown"
+            startMonth={new Date(2010, 0)}
+            endMonth={new Date()}
+            locale={es}
             autoFocus
           />
         </PopoverContent>
