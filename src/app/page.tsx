@@ -40,7 +40,7 @@ export default async function Home() {
         {/* Hero */}
         <section className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
           <div className="order-2 lg:order-1">
-            <Globe cameraDistance={3.2} />
+            <Globe cameraDistance={5} height="min(55vh, 460px)" />
           </div>
 
           <div className="order-1 flex flex-col gap-10 lg:order-2 lg:pl-4">
@@ -95,25 +95,11 @@ export default async function Home() {
               n={3}
               icon={Package}
               title="Tu perfil crece"
-              body="Tus km, países y gear se acumulan. Comparte tu perfil público, suma medallas, sé top viajero."
+              body="Tus km, países y gear se acumulan en tu bitácora de toda la vida. La comunidad gana medallas, reconocimientos y premios mensuales por kilómetros recorridos."
             />
           </ol>
-        </section>
 
-        {/* CTAs finales */}
-        <section className="flex flex-col gap-6 border-t border-border pt-12">
-          <div className="flex flex-col gap-3">
-            <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/40">
-              Empezar
-            </span>
-            <h2 className="font-display text-3xl font-black leading-[1.05] tracking-tight md:text-4xl">
-              Suma tu primer kilómetro.
-            </h2>
-            <p className="max-w-md text-base leading-relaxed text-foreground/65">
-              Crea tu cuenta en 30 segundos. Sin contraseñas, sin formularios
-              largos.
-            </p>
-          </div>
+          {/* CTAs inline, justo después del paso a paso */}
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
             <Link
               href="/login"
