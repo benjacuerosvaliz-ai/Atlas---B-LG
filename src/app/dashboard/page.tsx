@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Instagram, PencilLine } from "lucide-react";
+import { ExternalLink, PencilLine } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -114,8 +114,8 @@ export default async function DashboardPage() {
                 rel="noopener noreferrer"
                 className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
               >
-                <Instagram className="h-3 w-3" aria-hidden />
-                @{profile.instagram_handle}
+                IG · @{profile.instagram_handle}
+                <ExternalLink className="h-3 w-3" aria-hidden />
               </a>
             )}
           </div>
