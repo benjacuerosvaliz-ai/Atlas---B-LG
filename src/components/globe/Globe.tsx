@@ -1,27 +1,34 @@
 "use client";
 
-import { Canvas, useFrame, useLoader } from "@react-three/fiber";
+import { Canvas, useFrame, useLoader, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";
+import { useRouter } from "next/navigation";
 import { Suspense, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 
 const ROTATION_PERIOD_SEC = 120; // 1 vuelta completa cada 120s (concepto §4)
+
+export type GlobeTripMeta = {
+  id: string;
+  title: string;
+  distanceKm: number | null;
+  coverPhotoUrl: string | null;
+};
 
 export type GlobePoint = {
   lat: number;
   lng: number;
   /** Reserved for future heatmap intensity. Defaults to 1. */
   intensity?: number;
+  /** When set, the point becomes hoverable + clickable and shows a preview overlay. */
+  trip?: GlobeTripMeta;
 };
 
 type Props = {
-  /** Points to plot on the surface (lat/lng in degrees). Rotate with the earth. */
   points?: GlobePoint[];
-  /** Wrapper height. Defaults to the home hero size. */
   height?: string;
 };
 
-/** Convert lat/lng (degrees) → unit-sphere vec3 (radius scalable). */
 function latLngToVec3(
   lat: number,
   lng: number,
@@ -35,12 +42,20 @@ function latLngToVec3(
   return [x, y, z];
 }
 
+type PointHandlers = {
+  onHover: (trip: GlobeTripMeta) => void;
+  onLeave: () => void;
+  onPick: (trip: GlobeTripMeta) => void;
+};
+
 function Earth({
   paused,
   points,
+  handlers,
 }: {
   paused: boolean;
   points: GlobePoint[];
+  handlers: PointHandlers;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const colorMap = useLoader(THREE.TextureLoader, "/textures/earth.jpg");
@@ -66,9 +81,39 @@ function Earth({
         <group>
           {points.map((p, i) => {
             const pos = latLngToVec3(p.lat, p.lng);
+            const interactive = !!p.trip;
+            const radius = interactive ? 0.018 : 0.013;
             return (
-              <mesh key={`${p.lat},${p.lng},${i}`} position={pos}>
-                <sphereGeometry args={[0.013, 12, 12]} />
+              <mesh
+                key={`${p.lat},${p.lng},${i}`}
+                position={pos}
+                onPointerOver={
+                  interactive
+                    ? (e: ThreeEvent<PointerEvent>) => {
+                        e.stopPropagation();
+                        if (p.trip) handlers.onHover(p.trip);
+                        document.body.style.cursor = "pointer";
+                      }
+                    : undefined
+                }
+                onPointerOut={
+                  interactive
+                    ? () => {
+                        handlers.onLeave();
+                        document.body.style.cursor = "default";
+                      }
+                    : undefined
+                }
+                onClick={
+                  interactive
+                    ? (e: ThreeEvent<MouseEvent>) => {
+                        e.stopPropagation();
+                        if (p.trip) handlers.onPick(p.trip);
+                      }
+                    : undefined
+                }
+              >
+                <sphereGeometry args={[radius, 12, 12]} />
                 <meshBasicMaterial color="#d4a373" />
               </mesh>
             );
@@ -80,7 +125,6 @@ function Earth({
 }
 
 function Atmosphere() {
-  // Halo Fresnel: esfera ligeramente más grande, additive blend, glow en los bordes.
   return (
     <mesh scale={1.07}>
       <sphereGeometry args={[1, 64, 64]} />
@@ -116,6 +160,16 @@ function Atmosphere() {
 
 export function Globe({ points = [], height = "min(80vh, 700px)" }: Props) {
   const [paused, setPaused] = useState(false);
+  const [hoveredTrip, setHoveredTrip] = useState<GlobeTripMeta | null>(null);
+  const router = useRouter();
+
+  const handlers: PointHandlers = {
+    onHover: (trip) => setHoveredTrip(trip),
+    onLeave: () => setHoveredTrip(null),
+    onPick: (trip) => router.push(`/t/${trip.id}`),
+  };
+
+  const hasInteractive = points.some((p) => p.trip);
 
   return (
     <div
@@ -133,7 +187,7 @@ export function Globe({ points = [], height = "min(80vh, 700px)" }: Props) {
         <directionalLight position={[5, 3, 5]} intensity={1.6} />
         <directionalLight position={[-5, -2, -3]} intensity={0.18} color="#5bc0be" />
         <Suspense fallback={null}>
-          <Earth paused={paused} points={points} />
+          <Earth paused={paused} points={points} handlers={handlers} />
           <Atmosphere />
           <Stars radius={80} depth={50} count={1800} factor={2.2} fade speed={0.4} />
         </Suspense>
@@ -147,6 +201,39 @@ export function Globe({ points = [], height = "min(80vh, 700px)" }: Props) {
           onEnd={() => setPaused(false)}
         />
       </Canvas>
+
+      {hoveredTrip && (
+        <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 flex items-center gap-3 border border-border bg-card/90 p-3 backdrop-blur-sm">
+          {hoveredTrip.coverPhotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={hoveredTrip.coverPhotoUrl}
+              alt=""
+              className="h-14 w-14 shrink-0 object-cover"
+            />
+          ) : (
+            <div className="h-14 w-14 shrink-0 bg-fog" />
+          )}
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span className="truncate text-sm">{hoveredTrip.title}</span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/50">
+              <span className="tabular-nums">
+                {(hoveredTrip.distanceKm ?? 0).toLocaleString("es-CL")} km
+              </span>
+              <span className="px-2">·</span>
+              Click para ver
+            </span>
+          </div>
+        </div>
+      )}
+
+      {hasInteractive && !hoveredTrip && (
+        <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 text-center">
+          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/35">
+            Pasa el cursor por un punto
+          </span>
+        </div>
+      )}
     </div>
   );
 }

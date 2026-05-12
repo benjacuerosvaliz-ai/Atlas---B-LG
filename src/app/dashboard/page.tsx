@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ExternalLink, PencilLine } from "lucide-react";
+import { ExternalLink, PencilLine, User } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TripCard } from "@/components/trip-card";
@@ -109,7 +109,16 @@ export default async function DashboardPage() {
               {(profile?.total_km ?? 0).toLocaleString("es-CL")} km
             </span>
           </p>
-          <div className="mt-1 flex items-center gap-5">
+          <div className="mt-1 flex flex-wrap items-center gap-x-5 gap-y-2">
+            {profile?.username && (
+              <Link
+                href={`/u/${profile.username}`}
+                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
+              >
+                <User className="h-3 w-3" aria-hidden />
+                Mi perfil
+              </Link>
+            )}
             <Link
               href="/settings"
               className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"

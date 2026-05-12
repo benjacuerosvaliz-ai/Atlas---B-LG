@@ -9,7 +9,7 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import { TripCard } from "@/components/trip-card";
+import { TripCard, tripDisplayTitle } from "@/components/trip-card";
 import { createClient } from "@/lib/supabase/server";
 import { levels } from "@/lib/tokens";
 
@@ -79,14 +79,21 @@ export default async function UserProfilePage({ params }: Props) {
     }
   }
 
-  // Globe points: start + end of every public trip.
+  // Globe points: start + end of every public trip. Each carries trip
+  // metadata so the Globe overlay can preview them on hover/click.
   const points: GlobePoint[] = [];
   for (const t of trips) {
+    const tripMeta = {
+      id: t.id as string,
+      title: tripDisplayTitle(t),
+      distanceKm: (t.distance_km as number | null) ?? null,
+      coverPhotoUrl: (t.cover_photo_url as string | null) ?? null,
+    };
     if (typeof t.start_lat === "number" && typeof t.start_lng === "number") {
-      points.push({ lat: t.start_lat, lng: t.start_lng });
+      points.push({ lat: t.start_lat, lng: t.start_lng, trip: tripMeta });
     }
     if (typeof t.end_lat === "number" && typeof t.end_lng === "number") {
-      points.push({ lat: t.end_lat, lng: t.end_lng });
+      points.push({ lat: t.end_lat, lng: t.end_lng, trip: tripMeta });
     }
   }
 
