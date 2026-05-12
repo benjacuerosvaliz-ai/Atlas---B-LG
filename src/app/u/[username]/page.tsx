@@ -1,0 +1,320 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Globe, type GlobePoint } from "@/components/globe/Globe";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import { TripCard } from "@/components/trip-card";
+import { createClient } from "@/lib/supabase/server";
+import { levels } from "@/lib/tokens";
+
+type Props = { params: Promise<{ username: string }> };
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { username } = await params;
+  const supabase = await createClient();
+  const { data: profile } = await supabase
+    .from("users")
+    .select("display_name, total_km")
+    .eq("username", username)
+    .single();
+  if (!profile) return { title: "Perfil no encontrado" };
+  return {
+    title: profile.display_name ?? `@${username}`,
+    description: `${(profile.total_km ?? 0).toLocaleString("es-CL")} km recorridos en el Atlas BØLG.`,
+  };
+}
+
+export default async function UserProfilePage({ params }: Props) {
+  const { username } = await params;
+  const supabase = await createClient();
+
+  const { data: profile } = await supabase
+    .from("users")
+    .select(
+      "id, username, display_name, bio, city, country_code, level, total_km, instagram_handle, avatar_url, cover_url, created_at",
+    )
+    .eq("username", username)
+    .single();
+
+  if (!profile) notFound();
+
+  const [
+    { data: tripsRaw },
+    { data: gearRaw },
+    {
+      data: { user: viewer },
+    },
+  ] = await Promise.all([
+    supabase
+      .from("trips")
+      .select(
+        "id, title, start_place_name, end_place_name, start_short_name, end_short_name, distance_km, cover_photo_url, start_lat, start_lng, end_lat, end_lng, country_codes, start_at",
+      )
+      .eq("user_id", profile.id)
+      .eq("visibility", "public")
+      .order("start_at", { ascending: false }),
+    supabase
+      .from("user_claimed_models")
+      .select(
+        "first_claimed_at, product_models(id, name, hero_image_url, product_url)",
+      )
+      .eq("user_id", profile.id)
+      .order("first_claimed_at", { ascending: false }),
+    supabase.auth.getUser(),
+  ]);
+
+  const trips = tripsRaw ?? [];
+
+  // KPI: distinct countries across all trip country_codes arrays.
+  const countries = new Set<string>();
+  for (const t of trips) {
+    for (const code of t.country_codes ?? []) {
+      if (code) countries.add(code as string);
+    }
+  }
+
+  // Globe points: start + end of every public trip.
+  const points: GlobePoint[] = [];
+  for (const t of trips) {
+    if (typeof t.start_lat === "number" && typeof t.start_lng === "number") {
+      points.push({ lat: t.start_lat, lng: t.start_lng });
+    }
+    if (typeof t.end_lat === "number" && typeof t.end_lng === "number") {
+      points.push({ lat: t.end_lat, lng: t.end_lng });
+    }
+  }
+
+  type GearRow = {
+    product_models: {
+      id: string;
+      name: string;
+      hero_image_url: string | null;
+      product_url: string | null;
+    } | null;
+  };
+  const gear = ((gearRaw ?? []) as unknown as GearRow[])
+    .map((r) => r.product_models)
+    .filter((m): m is NonNullable<GearRow["product_models"]> => Boolean(m));
+
+  const levelInfo = levels.find((l) => l.id === (profile.level ?? 1));
+  const nameForInitials = String(
+    profile.display_name ?? profile.username ?? "",
+  );
+  const initials = nameForInitials
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part: string) => part[0] ?? "")
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+
+  const coverUrl =
+    (profile.cover_url as string | null) ?? trips[0]?.cover_photo_url ?? null;
+
+  const isSelf = viewer?.id === profile.id;
+
+  return (
+    <div className="relative flex min-h-screen flex-col bg-background">
+      <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-6 py-5 md:px-10 md:py-7">
+        <Link href="/" className="flex items-baseline gap-3">
+          <span className="font-display text-xl font-black leading-none tracking-tight text-bone md:text-2xl">
+            BØLG
+          </span>
+          <span className="text-[10px] uppercase tracking-[0.36em] text-bone/60">
+            Atlas
+          </span>
+        </Link>
+        {isSelf && (
+          <Link
+            href="/dashboard"
+            className="text-[10px] uppercase tracking-[0.28em] text-bone/70 hover:text-bone transition-colors"
+          >
+            Dashboard →
+          </Link>
+        )}
+      </header>
+
+      <main className="flex flex-1 flex-col">
+        {/* Hero cover */}
+        <section className="relative h-[44vh] min-h-[280px] w-full overflow-hidden bg-fog">
+          {coverUrl && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={coverUrl}
+              alt=""
+              className="h-full w-full object-cover"
+              loading="eager"
+            />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
+        </section>
+
+        {/* Profile head */}
+        <section className="-mt-20 px-6 md:px-10">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
+            <Avatar className="h-24 w-24 border border-mist/30 bg-fog">
+              {profile.avatar_url && (
+                <AvatarImage
+                  src={profile.avatar_url as string}
+                  alt={profile.display_name ?? profile.username ?? ""}
+                />
+              )}
+              <AvatarFallback className="bg-fog font-display text-2xl font-black text-foreground/80">
+                {initials || "·"}
+              </AvatarFallback>
+            </Avatar>
+
+            <div className="flex flex-col gap-2">
+              <h1 className="font-display text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
+                {profile.display_name ?? `@${profile.username}`}
+              </h1>
+              <p className="font-mono text-sm text-foreground/55">
+                @{profile.username}
+                {profile.city && (
+                  <>
+                    <span className="px-2">·</span>
+                    {profile.city}
+                  </>
+                )}
+                <span className="px-2">·</span>
+                Nivel {profile.level ?? 1}
+                <span className="px-2">·</span>
+                {levelInfo?.title ?? ""}
+              </p>
+              {profile.instagram_handle && (
+                <a
+                  href={`https://instagram.com/${profile.instagram_handle}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="self-start text-[10px] uppercase tracking-[0.28em] text-foreground/55 hover:text-foreground transition-colors"
+                >
+                  IG · @{profile.instagram_handle} ↗
+                </a>
+              )}
+              {profile.bio && (
+                <p className="mt-2 max-w-xl text-base leading-relaxed text-foreground/75">
+                  {profile.bio}
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* KPIs */}
+        <section className="mx-auto mt-12 grid w-full max-w-5xl grid-cols-2 gap-y-8 border-t border-border px-6 pt-8 md:grid-cols-4 md:px-10">
+          <Kpi value={profile.total_km ?? 0} label="Kilómetros" suffix="km" />
+          <Kpi value={countries.size} label="Países" />
+          <Kpi value={trips.length} label="Viajes" />
+          <Kpi value={gear.length} label="Gear BØLG" />
+        </section>
+
+        {/* Mini-globe */}
+        {points.length > 0 && (
+          <section className="mx-auto mt-12 w-full max-w-3xl px-6 md:px-10">
+            <Globe points={points} height="380px" />
+          </section>
+        )}
+
+        {/* Tabs */}
+        <section className="mx-auto mt-16 w-full max-w-5xl px-6 pb-24 md:px-10">
+          <Tabs defaultValue="trips" className="flex flex-col gap-8">
+            <TabsList variant="line">
+              <TabsTrigger value="trips">
+                <span className="text-[10px] uppercase tracking-[0.28em]">
+                  Viajes · {trips.length}
+                </span>
+              </TabsTrigger>
+              <TabsTrigger value="gear">
+                <span className="text-[10px] uppercase tracking-[0.28em]">
+                  Gear · {gear.length}
+                </span>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="trips">
+              {trips.length === 0 ? (
+                <p className="font-mono text-sm text-foreground/50">
+                  Aún no hay viajes públicos en este perfil.
+                </p>
+              ) : (
+                <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {trips.map((t) => (
+                    <li key={t.id}>
+                      <TripCard trip={t} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+
+            <TabsContent value="gear">
+              {gear.length === 0 ? (
+                <p className="font-mono text-sm text-foreground/50">
+                  Sin gear BØLG vinculado todavía.
+                </p>
+              ) : (
+                <ul className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
+                  {gear.map((m) => (
+                    <li key={m.id}>
+                      <a
+                        href={m.product_url ?? "#"}
+                        target={m.product_url ? "_blank" : undefined}
+                        rel="noopener noreferrer"
+                        className="group flex flex-col gap-2"
+                      >
+                        <div className="aspect-square overflow-hidden bg-fog">
+                          {m.hero_image_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={m.hero_image_url}
+                              alt={m.name}
+                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                              loading="lazy"
+                            />
+                          )}
+                        </div>
+                        <span className="text-xs leading-tight">{m.name}</span>
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
+          </Tabs>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function Kpi({
+  value,
+  label,
+  suffix,
+}: {
+  value: number;
+  label: string;
+  suffix?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline gap-1.5">
+        <span className="font-mono text-3xl font-bold tabular-nums tracking-tight md:text-4xl">
+          {value.toLocaleString("es-CL")}
+        </span>
+        {suffix && (
+          <span className="font-mono text-xs text-foreground/40">{suffix}</span>
+        )}
+      </div>
+      <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+        {label}
+      </span>
+    </div>
+  );
+}

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ExternalLink, PencilLine } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { TripCard } from "@/components/trip-card";
 import { createClient } from "@/lib/supabase/server";
 import { levels } from "@/lib/tokens";
 import { signOut } from "../login/actions";
@@ -89,7 +90,16 @@ export default async function DashboardPage() {
             Hola, {profile?.display_name ?? user.email}.
           </h1>
           <p className="font-mono text-sm text-foreground/50">
-            @{profile?.username ?? "—"}
+            {profile?.username ? (
+              <Link
+                href={`/u/${profile.username}`}
+                className="hover:text-foreground transition-colors"
+              >
+                @{profile.username}
+              </Link>
+            ) : (
+              "—"
+            )}
             <span className="px-2">·</span>
             Nivel {profile?.level ?? 1}
             <span className="px-2">·</span>
@@ -178,34 +188,7 @@ export default async function DashboardPage() {
             <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {trips.map((t) => (
                 <li key={t.id}>
-                  <Link
-                    href={`/t/${t.id}`}
-                    className="group flex flex-col gap-3 border border-border p-4 hover:border-foreground/60 transition-colors"
-                  >
-                    {t.cover_photo_url ? (
-                      <div className="aspect-[4/3] overflow-hidden bg-fog">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={t.cover_photo_url}
-                          alt=""
-                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
-                          loading="lazy"
-                        />
-                      </div>
-                    ) : (
-                      <div className="aspect-[4/3] bg-fog" />
-                    )}
-                    <div className="flex flex-col gap-1">
-                      <span className="text-base leading-tight">
-                        {tripDisplayTitle(t)}
-                      </span>
-                      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/40">
-                        <span className="tabular-nums">
-                          {(t.distance_km ?? 0).toLocaleString("es-CL")} km
-                        </span>
-                      </span>
-                    </div>
-                  </Link>
+                  <TripCard trip={t} />
                 </li>
               ))}
             </ul>
@@ -214,22 +197,4 @@ export default async function DashboardPage() {
       </main>
     </div>
   );
-}
-
-type TripCard = {
-  title: string | null;
-  start_place_name: string | null;
-  end_place_name: string | null;
-  start_short_name: string | null;
-  end_short_name: string | null;
-};
-
-function tripDisplayTitle(t: TripCard): string {
-  if (t.title) return t.title;
-  const start = (t.start_short_name ?? t.start_place_name?.split(",")[0] ?? "").trim();
-  const end = (t.end_short_name ?? t.end_place_name?.split(",")[0] ?? "").trim();
-  if (end && end.toLowerCase() !== start.toLowerCase()) {
-    return `${start} → ${end}`;
-  }
-  return start || "Sin título";
 }
