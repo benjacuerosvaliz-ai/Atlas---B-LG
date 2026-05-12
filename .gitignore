@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# BØLG Atlas - context docs kept local, not in public repo
+/docs/
