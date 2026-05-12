@@ -57,6 +57,8 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
       end_lng: data.endPlace?.longitude ?? null,
       start_place_name: data.startPlace.placeFormatted,
       end_place_name: data.endPlace?.placeFormatted ?? null,
+      start_short_name: data.startPlace.name,
+      end_short_name: data.endPlace?.name ?? null,
       country_codes: countryCodes.length > 0 ? countryCodes : null,
       activity_type: data.activityType,
       visibility: "public",

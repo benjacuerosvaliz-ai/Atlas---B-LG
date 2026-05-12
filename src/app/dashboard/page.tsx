@@ -31,7 +31,7 @@ export default async function DashboardPage() {
       supabase
         .from("trips")
         .select(
-          "id, title, start_place_name, end_place_name, start_at, distance_km, activity_type, cover_photo_url",
+          "id, title, start_place_name, end_place_name, start_short_name, end_short_name, start_at, distance_km, activity_type, cover_photo_url",
         )
         .eq("user_id", user.id)
         .order("start_at", { ascending: false })
@@ -122,11 +122,11 @@ export default async function DashboardPage() {
         </section>
 
         {gear.length > 0 && (
-          <section className="flex flex-wrap items-center gap-x-4 gap-y-2 pt-2">
-            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/35">
-              Tu gear
+          <section className="flex flex-col gap-3 pt-2">
+            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+              Tu Gear BØLG
             </span>
-            <ul className="flex flex-wrap items-center gap-2">
+            <ul className="flex flex-wrap items-center gap-2.5">
               {gear.map((m) => (
                 <li key={m.id}>
                   <a
@@ -134,7 +134,7 @@ export default async function DashboardPage() {
                     target={m.product_url ? "_blank" : undefined}
                     rel="noopener noreferrer"
                     title={m.name}
-                    className="block h-10 w-10 overflow-hidden bg-fog opacity-50 hover:opacity-100 transition-opacity"
+                    className="block h-[50px] w-[50px] overflow-hidden bg-fog opacity-65 hover:opacity-100 transition-opacity"
                   >
                     {m.hero_image_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -193,7 +193,7 @@ export default async function DashboardPage() {
                     )}
                     <div className="flex flex-col gap-1">
                       <span className="text-base leading-tight">
-                        {t.title ?? t.start_place_name ?? "Sin título"}
+                        {tripDisplayTitle(t)}
                       </span>
                       <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/40">
                         <span className="tabular-nums">
@@ -210,4 +210,22 @@ export default async function DashboardPage() {
       </main>
     </div>
   );
+}
+
+type TripCard = {
+  title: string | null;
+  start_place_name: string | null;
+  end_place_name: string | null;
+  start_short_name: string | null;
+  end_short_name: string | null;
+};
+
+function tripDisplayTitle(t: TripCard): string {
+  if (t.title) return t.title;
+  const start = (t.start_short_name ?? t.start_place_name?.split(",")[0] ?? "").trim();
+  const end = (t.end_short_name ?? t.end_place_name?.split(",")[0] ?? "").trim();
+  if (end && end.toLowerCase() !== start.toLowerCase()) {
+    return `${start} → ${end}`;
+  }
+  return start || "Sin título";
 }

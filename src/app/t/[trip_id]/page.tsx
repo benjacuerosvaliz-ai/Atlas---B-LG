@@ -32,7 +32,7 @@ export default async function TripPage({ params }: Props) {
   const { data: trip } = await supabase
     .from("trips")
     .select(
-      "id, title, description, start_at, end_at, distance_km, elevation_gain_m, start_place_name, end_place_name, country_codes, activity_type, visibility, cover_photo_url",
+      "id, title, description, start_at, end_at, distance_km, elevation_gain_m, start_place_name, end_place_name, start_short_name, end_short_name, country_codes, activity_type, visibility, cover_photo_url",
     )
     .eq("id", trip_id)
     .single();
@@ -90,7 +90,7 @@ export default async function TripPage({ params }: Props) {
               : "Viaje"}
           </span>
           <h1 className="font-display text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
-            {trip.title ?? trip.start_place_name}
+            {trip.title ?? tripHeading(trip)}
           </h1>
           <p className="font-mono text-sm text-foreground/55">
             {trip.start_at &&
@@ -189,4 +189,18 @@ export default async function TripPage({ params }: Props) {
       </main>
     </div>
   );
+}
+
+function tripHeading(t: {
+  start_short_name: string | null;
+  end_short_name: string | null;
+  start_place_name: string | null;
+  end_place_name: string | null;
+}): string {
+  const start = (t.start_short_name ?? t.start_place_name?.split(",")[0] ?? "").trim();
+  const end = (t.end_short_name ?? t.end_place_name?.split(",")[0] ?? "").trim();
+  if (end && end.toLowerCase() !== start.toLowerCase()) {
+    return `${start} → ${end}`;
+  }
+  return start || "Viaje";
 }
