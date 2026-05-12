@@ -79,9 +79,40 @@ export default async function UserProfilePage({ params }: Props) {
     }
   }
 
-  // Globe points: start + end of every public trip. Each carries trip
-  // metadata so the Globe overlay can preview them on hover/click.
-  const points: GlobePoint[] = [];
+  // Globe points: group every trip endpoint by short place name. Same
+  // location (e.g. two trips that both started in Santiago) collapses to
+  // a single dot on the globe; clicking it reveals all of them.
+  type LocBucket = {
+    lat: number;
+    lng: number;
+    name: string;
+    tripIds: Set<string>;
+    trips: NonNullable<GlobePoint["trips"]>;
+  };
+  const byPlace = new Map<string, LocBucket>();
+  function visit(
+    name: string | null,
+    lat: number | null,
+    lng: number | null,
+    trip: NonNullable<GlobePoint["trips"]>[number],
+  ) {
+    if (!name || typeof lat !== "number" || typeof lng !== "number") return;
+    const key = name;
+    if (!byPlace.has(key)) {
+      byPlace.set(key, {
+        lat,
+        lng,
+        name,
+        tripIds: new Set(),
+        trips: [],
+      });
+    }
+    const b = byPlace.get(key)!;
+    if (!b.tripIds.has(trip.id)) {
+      b.tripIds.add(trip.id);
+      b.trips.push(trip);
+    }
+  }
   for (const t of trips) {
     const tripMeta = {
       id: t.id as string,
@@ -89,13 +120,25 @@ export default async function UserProfilePage({ params }: Props) {
       distanceKm: (t.distance_km as number | null) ?? null,
       coverPhotoUrl: (t.cover_photo_url as string | null) ?? null,
     };
-    if (typeof t.start_lat === "number" && typeof t.start_lng === "number") {
-      points.push({ lat: t.start_lat, lng: t.start_lng, trip: tripMeta });
-    }
-    if (typeof t.end_lat === "number" && typeof t.end_lng === "number") {
-      points.push({ lat: t.end_lat, lng: t.end_lng, trip: tripMeta });
-    }
+    visit(
+      (t.start_short_name as string | null) ?? null,
+      t.start_lat as number | null,
+      t.start_lng as number | null,
+      tripMeta,
+    );
+    visit(
+      (t.end_short_name as string | null) ?? null,
+      t.end_lat as number | null,
+      t.end_lng as number | null,
+      tripMeta,
+    );
   }
+  const points: GlobePoint[] = Array.from(byPlace.values()).map((b) => ({
+    lat: b.lat,
+    lng: b.lng,
+    name: b.name,
+    trips: b.trips,
+  }));
 
   type GearRow = {
     product_models: {
