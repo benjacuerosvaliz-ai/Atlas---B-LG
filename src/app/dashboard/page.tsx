@@ -19,11 +19,19 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("users")
-    .select("username, display_name, total_km, level")
-    .eq("id", user.id)
-    .single();
+  const [{ data: profile }, { data: trips }] = await Promise.all([
+    supabase
+      .from("users")
+      .select("username, display_name, total_km, level")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("trips")
+      .select("id, title, start_place_name, end_place_name, start_at, distance_km, activity_type, cover_photo_url")
+      .eq("user_id", user.id)
+      .order("start_at", { ascending: false })
+      .limit(6),
+  ]);
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -63,12 +71,60 @@ export default async function DashboardPage() {
           </p>
         </section>
 
-        <section className="border-t border-border pt-8">
-          <p className="max-w-md font-mono text-sm leading-relaxed text-foreground/60">
-            Tu dashboard real llega en Sesión 3: vinculación de productos,
-            primer trip, recap. Por ahora estás autenticado — eso es lo
-            importante.
-          </p>
+        <section className="flex flex-col gap-6 border-t border-border pt-8">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+              Tus viajes
+            </span>
+            <Link
+              href="/trip/new"
+              className="bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.28em] text-background hover:bg-foreground/80 transition-colors"
+            >
+              Nuevo viaje →
+            </Link>
+          </div>
+
+          {!trips || trips.length === 0 ? (
+            <p className="max-w-md font-mono text-sm leading-relaxed text-foreground/55">
+              Aún no subiste ningún viaje. Empezá por el primero — Pucón, el
+              Cajón del Maipo, una caminata por La Reina. Lo que sea cuenta.
+            </p>
+          ) : (
+            <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {trips.map((t) => (
+                <li key={t.id}>
+                  <Link
+                    href={`/t/${t.id}`}
+                    className="group flex flex-col gap-3 border border-border p-4 hover:border-foreground/60 transition-colors"
+                  >
+                    {t.cover_photo_url ? (
+                      <div className="aspect-[4/3] overflow-hidden bg-fog">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={t.cover_photo_url}
+                          alt=""
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : (
+                      <div className="aspect-[4/3] bg-fog" />
+                    )}
+                    <div className="flex flex-col gap-1">
+                      <span className="text-base leading-tight">
+                        {t.title ?? t.start_place_name ?? "Sin título"}
+                      </span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/40">
+                        <span className="tabular-nums">
+                          {(t.distance_km ?? 0).toLocaleString("es-CL")} km
+                        </span>
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </main>
     </div>
