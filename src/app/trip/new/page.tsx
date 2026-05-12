@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { isProvisionalUsername } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/server";
 import { TripWizard } from "./TripWizard";
 import type { ProductModelLite } from "./types";
@@ -17,6 +18,16 @@ export default async function NewTripPage() {
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login?next=/trip/new");
+
+  // Force onboarding before letting them create a trip.
+  const { data: usernameRow } = await supabase
+    .from("users")
+    .select("username")
+    .eq("id", user.id)
+    .single();
+  if (isProvisionalUsername(usernameRow?.username as string | null)) {
+    redirect("/onboarding");
+  }
 
   // Load the full catalog (hero image + product URL) and the user's
   // current collection in parallel. The wizard renders all models as a

@@ -3,6 +3,7 @@ import { ExternalLink, PencilLine, User } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { TripCard } from "@/components/trip-card";
+import { isProvisionalUsername } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/server";
 import { levels } from "@/lib/tokens";
 import { signOut } from "../login/actions";
@@ -20,6 +21,17 @@ export default async function DashboardPage() {
 
   if (!user) {
     redirect("/login");
+  }
+
+  // Force onboarding if still on the provisional username — happens after
+  // the very first magic-link signup before they pick a real handle.
+  const { data: usernameRow } = await supabase
+    .from("users")
+    .select("username")
+    .eq("id", user.id)
+    .single();
+  if (isProvisionalUsername(usernameRow?.username as string | null)) {
+    redirect("/onboarding");
   }
 
   const [{ data: profile }, { data: trips }, { data: collection }] =

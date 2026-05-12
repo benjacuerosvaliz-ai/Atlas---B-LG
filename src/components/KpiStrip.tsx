@@ -43,12 +43,22 @@ function KpiItem({ value, label, suffix }: KpiItemProps) {
   );
 }
 
-export function KpiStrip() {
+type KpiStripProps = {
+  totalKm: number;
+  totalTrips: number;
+  totalCountries: number;
+};
+
+export function KpiStrip({
+  totalKm,
+  totalTrips,
+  totalCountries,
+}: KpiStripProps) {
   return (
     <div className="flex flex-col gap-6 border-t border-border pt-6 sm:flex-row sm:gap-12">
-      <KpiItem value={12_483_927} label="Kilómetros" suffix="km" />
-      <KpiItem value={47_318} label="Aventuras" />
-      <KpiItem value={89} label="Países" />
+      <KpiItem value={totalKm} label="Kilómetros" suffix="km" />
+      <KpiItem value={totalTrips} label="Aventuras" />
+      <KpiItem value={totalCountries} label="Países" />
     </div>
   );
 }

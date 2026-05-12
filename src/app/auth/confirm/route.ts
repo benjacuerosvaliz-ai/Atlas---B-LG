@@ -1,6 +1,7 @@
 import { type EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { needsOnboarding } from "@/lib/onboarding";
 
 /**
  * Email OTP verification. Receives ?token_hash=...&type=signup|magiclink|...
@@ -33,6 +34,10 @@ export async function GET(request: Request) {
         url.origin,
       ),
     );
+  }
+
+  if (await needsOnboarding(supabase)) {
+    return NextResponse.redirect(new URL("/onboarding", url.origin));
   }
 
   return NextResponse.redirect(new URL(next, url.origin));

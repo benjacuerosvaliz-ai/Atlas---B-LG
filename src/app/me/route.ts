@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
+import { isProvisionalUsername } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * Shortcut: /me → /u/{my-username}. If not signed in, bounce to /login.
+ * If still on the provisional username, bounce to /onboarding first.
  */
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -22,10 +24,10 @@ export async function GET(request: Request) {
     .eq("id", user.id)
     .single();
 
-  if (!profile?.username) {
-    // Edge case: row exists but no username. Send to settings to set one.
-    return NextResponse.redirect(new URL("/settings", url.origin));
+  const username = profile?.username as string | null | undefined;
+  if (isProvisionalUsername(username)) {
+    return NextResponse.redirect(new URL("/onboarding", url.origin));
   }
 
-  return NextResponse.redirect(new URL(`/u/${profile.username}`, url.origin));
+  return NextResponse.redirect(new URL(`/u/${username}`, url.origin));
 }
