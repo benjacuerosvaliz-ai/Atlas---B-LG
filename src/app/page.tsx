@@ -83,7 +83,7 @@ export default async function Home() {
               n={1}
               icon={MapPin}
               title="Crea tu cuenta"
-              body="Sin contraseñas — un correo, un enlace mágico, listo. 30 segundos."
+              body="Sin contraseñas — un correo, un enlace de acceso, listo. 30 segundos."
             />
             <Step
               n={2}
@@ -95,7 +95,7 @@ export default async function Home() {
               n={3}
               icon={Package}
               title="Tu perfil crece"
-              body="Tus km, países y gear se acumulan en tu bitácora de toda la vida. La comunidad gana medallas, reconocimientos y premios mensuales por kilómetros recorridos."
+              body="Tus km, países y equipaje se acumulan en tu bitácora de toda la vida. La comunidad gana medallas, reconocimientos y premios mensuales por kilómetros recorridos."
             />
           </ol>
 

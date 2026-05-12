@@ -34,27 +34,27 @@ export function StepProducts({ data, patch, catalog }: Props) {
     <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-3">
         <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/40">
-          Tus BØLG en este viaje
+          Tu equipaje BØLG en este viaje
         </span>
         <h2 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
           ¿Qué te llevaste?
         </h2>
         <p className="max-w-lg text-base leading-relaxed text-foreground/60">
-          Marca los que estuvieron contigo — sus kilómetros suman a tu gear y
-          quedan registrados en su historial. Lo que no tienes, lo puedes
-          mandar derecho a la tienda.
+          Opcional. Marca los BØLG que estuvieron contigo — suman kilómetros
+          a tu equipaje y quedan en su historial. Si no llevaste ninguno,
+          puedes saltar al siguiente paso con el botón abajo.
         </p>
       </div>
 
       {!hasPhotos && (
-        <div className="flex flex-col gap-2 border border-destructive/40 bg-destructive/[0.04] px-4 py-3">
-          <span className="text-[10px] uppercase tracking-[0.28em] text-destructive">
-            Necesitás al menos 1 foto del viaje
+        <div className="flex flex-col gap-2 border border-border bg-card/60 px-4 py-3">
+          <span className="text-[10px] uppercase tracking-[0.28em] text-foreground/70">
+            Para marcar BØLG necesitas ≥1 foto del viaje
           </span>
-          <p className="font-mono text-xs leading-relaxed text-foreground/65">
-            Para sumar productos pedimos foto-evidencia. Vuelve al paso anterior
-            y sube una. Sin ella puedes saltar este paso, pero las marcas quedan
-            sin efecto.
+          <p className="font-mono text-xs leading-relaxed text-foreground/55">
+            Pedimos foto-evidencia para sumarlos al equipaje. Vuelve al paso
+            anterior si quieres marcar — o sigue así si no llevaste ningún
+            BØLG en este viaje.
           </p>
         </div>
       )}
@@ -89,7 +89,7 @@ export function StepProducts({ data, patch, catalog }: Props) {
                 )}
                 {m.alreadyOwned && (
                   <span className="absolute left-2 top-2 bg-ink/85 px-2 py-1 font-mono text-[9px] uppercase tracking-[0.18em] text-bone">
-                    En tu gear
+                    En tu equipaje
                   </span>
                 )}
                 {selected && (

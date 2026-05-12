@@ -5,7 +5,7 @@ import { LoginForm } from "./LoginForm";
 export const metadata: Metadata = {
   title: "Ingresar",
   description:
-    "Entra a BØLG Atlas con tu correo. Te enviamos un enlace mágico, sin contraseñas.",
+    "Entra a BØLG Atlas con tu correo. Te enviamos un enlace de acceso, sin contraseñas.",
 };
 
 export default function LoginPage() {
@@ -22,7 +22,7 @@ export default function LoginPage() {
               Ingresar
             </span>
             <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
-              Te enviamos un enlace mágico.
+              Te enviamos un enlace de acceso.
             </h1>
             <p className="text-base leading-relaxed text-foreground/60">
               Sin contraseñas. Pones tu correo, revisas tu bandeja, vuelves.

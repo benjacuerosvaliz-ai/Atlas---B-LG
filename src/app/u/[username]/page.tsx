@@ -255,7 +255,7 @@ export default async function UserProfilePage({ params }: Props) {
           <Kpi value={profile.total_km ?? 0} label="Kilómetros" suffix="km" />
           <Kpi value={countries.size} label="Países" />
           <Kpi value={trips.length} label="Viajes" />
-          <Kpi value={gear.length} label="Gear BØLG" />
+          <Kpi value={gear.length} label="Equipaje" />
         </section>
 
         {/* Mini-globe */}
@@ -276,7 +276,7 @@ export default async function UserProfilePage({ params }: Props) {
               </TabsTrigger>
               <TabsTrigger value="gear">
                 <span className="text-[10px] uppercase tracking-[0.28em]">
-                  Gear · {gear.length}
+                  Equipaje · {gear.length}
                 </span>
               </TabsTrigger>
             </TabsList>
@@ -300,7 +300,7 @@ export default async function UserProfilePage({ params }: Props) {
             <TabsContent value="gear">
               {gear.length === 0 ? (
                 <p className="font-mono text-sm text-foreground/50">
-                  Sin gear BØLG vinculado todavía.
+                  Sin equipaje BØLG vinculado todavía.
                 </p>
               ) : (
                 <ul className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">

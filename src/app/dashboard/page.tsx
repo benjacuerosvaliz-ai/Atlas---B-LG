@@ -149,7 +149,7 @@ export default async function DashboardPage() {
         {gear.length > 0 && (
           <section className="flex flex-col gap-3 pt-2">
             <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-              Tu Gear BØLG
+              Tu Equipaje BØLG
             </span>
             <ul className="flex flex-wrap gap-x-4 gap-y-3">
               {gear.map((m) => (

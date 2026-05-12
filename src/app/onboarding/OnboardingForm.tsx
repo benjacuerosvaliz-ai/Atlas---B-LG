@@ -115,8 +115,8 @@ export function OnboardingForm({ initialDisplayName, catalog }: Props) {
           )}
         </div>
         <p className="max-w-lg text-sm leading-relaxed text-foreground/55">
-          Marca los que ya tienes para empezar tu gear. Puedes agregar más
-          después.
+          Marca los que ya tienes para empezar tu equipaje. Puedes agregar
+          más después.
         </p>
         <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
           {catalog.map((m) => {
