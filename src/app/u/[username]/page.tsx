@@ -312,10 +312,8 @@ export default async function UserProfilePage({ params }: Props) {
                 <ul className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-6">
                   {gear.map((m) => (
                     <li key={m.id}>
-                      <a
-                        href={m.product_url ?? "#"}
-                        target={m.product_url ? "_blank" : undefined}
-                        rel="noopener noreferrer"
+                      <Link
+                        href={`/sku/${m.id}`}
                         className="group flex flex-col gap-2"
                       >
                         <div className="aspect-square overflow-hidden bg-fog">
@@ -330,7 +328,7 @@ export default async function UserProfilePage({ params }: Props) {
                           )}
                         </div>
                         <span className="text-xs leading-tight">{m.name}</span>
-                      </a>
+                      </Link>
                     </li>
                   ))}
                 </ul>

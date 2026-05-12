@@ -152,10 +152,8 @@ export default async function TripPage({ params }: Props) {
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {claimedModels.map((m) => (
                 <li key={m.id}>
-                  <a
-                    href={m.product_url ?? "#"}
-                    target={m.product_url ? "_blank" : undefined}
-                    rel="noopener noreferrer"
+                  <Link
+                    href={`/sku/${m.id}`}
                     className="group flex flex-col gap-2"
                   >
                     <div className="aspect-square overflow-hidden bg-fog">
@@ -172,7 +170,7 @@ export default async function TripPage({ params }: Props) {
                       )}
                     </div>
                     <span className="text-sm leading-tight">{m.name}</span>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

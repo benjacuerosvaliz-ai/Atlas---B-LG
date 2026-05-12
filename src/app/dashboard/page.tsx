@@ -148,10 +148,8 @@ export default async function DashboardPage() {
             <ul className="flex flex-wrap gap-x-4 gap-y-3">
               {gear.map((m) => (
                 <li key={m.id} className="w-[80px]">
-                  <a
-                    href={m.product_url ?? "#"}
-                    target={m.product_url ? "_blank" : undefined}
-                    rel="noopener noreferrer"
+                  <Link
+                    href={`/sku/${m.id}`}
                     className="group flex flex-col gap-1.5"
                   >
                     <div className="h-[80px] w-[80px] overflow-hidden bg-fog opacity-80 transition-opacity group-hover:opacity-100">
@@ -168,7 +166,7 @@ export default async function DashboardPage() {
                     <span className="block text-[11px] leading-tight text-foreground/65 group-hover:text-foreground transition-colors">
                       {m.name}
                     </span>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>

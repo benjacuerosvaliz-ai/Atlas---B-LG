@@ -9,6 +9,9 @@ export type TripCardData = {
   end_short_name: string | null;
   distance_km: number | null;
   cover_photo_url: string | null;
+  /** Optional author. Rendered as a small "by @username" line — useful on
+   *  surfaces that mix trips from different users (e.g. /sku/[model_id]). */
+  author?: { username: string; display_name: string | null } | null;
 };
 
 export function TripCard({ trip }: { trip: TripCardData }) {
@@ -36,6 +39,14 @@ export function TripCard({ trip }: { trip: TripCardData }) {
           <span className="tabular-nums">
             {(trip.distance_km ?? 0).toLocaleString("es-CL")} km
           </span>
+          {trip.author && (
+            <>
+              <span className="px-2">·</span>
+              <span>
+                {trip.author.display_name ?? `@${trip.author.username}`}
+              </span>
+            </>
+          )}
         </span>
       </div>
     </Link>
