@@ -1,3 +1,14 @@
+import {
+  Award,
+  Compass,
+  Flag,
+  Globe as GlobeIcon,
+  Mountain,
+  Repeat,
+  Sparkles,
+  Sun,
+  type LucideIcon,
+} from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,8 +22,35 @@ import {
 } from "@/components/ui/tabs";
 import { BolgWordmark } from "@/components/bolg-wordmark";
 import { TripCard, tripDisplayTitle } from "@/components/trip-card";
+import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
 import { levels } from "@/lib/tokens";
+
+type EarnedBadge = {
+  id: string;
+  name: string;
+  description: string | null;
+  rarity: string;
+  earnedAt: string;
+};
+
+const BADGE_ICONS: Record<string, LucideIcon> = {
+  viajero_casual: Compass,
+  trotamundos: GlobeIcon,
+  andino: Mountain,
+  hemisferios: GlobeIcon,
+  aurora: Sparkles,
+  antipoda: Repeat,
+  first_mover: Flag,
+  equinoccio: Sun,
+};
+
+const RARITY_CLASS: Record<string, string> = {
+  common: "text-foreground/55",
+  rare: "text-ember",
+  epic: "text-aurora",
+  legendary: "text-ember font-bold",
+};
 
 type Props = { params: Promise<{ username: string }> };
 
@@ -48,6 +86,7 @@ export default async function UserProfilePage({ params }: Props) {
   const [
     { data: tripsRaw },
     { data: gearRaw },
+    { data: badgesRaw },
     {
       data: { user: viewer },
     },
@@ -67,6 +106,11 @@ export default async function UserProfilePage({ params }: Props) {
       )
       .eq("user_id", profile.id)
       .order("first_claimed_at", { ascending: false }),
+    supabase
+      .from("user_badges")
+      .select("earned_at, badges(id, name, description, rarity)")
+      .eq("user_id", profile.id)
+      .order("earned_at", { ascending: false }),
     supabase.auth.getUser(),
   ]);
 
@@ -152,6 +196,25 @@ export default async function UserProfilePage({ params }: Props) {
   const gear = ((gearRaw ?? []) as unknown as GearRow[])
     .map((r) => r.product_models)
     .filter((m): m is NonNullable<GearRow["product_models"]> => Boolean(m));
+
+  type BadgeRow = {
+    earned_at: string;
+    badges: {
+      id: string;
+      name: string;
+      description: string | null;
+      rarity: string;
+    } | null;
+  };
+  const badges = ((badgesRaw ?? []) as unknown as BadgeRow[])
+    .filter((b) => b.badges)
+    .map((b) => ({
+      id: b.badges!.id,
+      name: b.badges!.name,
+      description: b.badges!.description,
+      rarity: b.badges!.rarity,
+      earnedAt: b.earned_at,
+    }));
 
   const levelInfo = levels.find((l) => l.id === (profile.level ?? 1));
   const nameForInitials = String(
@@ -279,6 +342,11 @@ export default async function UserProfilePage({ params }: Props) {
                   Equipaje · {gear.length}
                 </span>
               </TabsTrigger>
+              <TabsTrigger value="badges">
+                <span className="text-[10px] uppercase tracking-[0.28em]">
+                  Medallas · {badges.length}
+                </span>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="trips">
@@ -328,9 +396,55 @@ export default async function UserProfilePage({ params }: Props) {
                 </ul>
               )}
             </TabsContent>
+
+            <TabsContent value="badges">
+              {badges.length === 0 ? (
+                <p className="font-mono text-sm text-foreground/50">
+                  Aún sin medallas. Cada viaje nuevo puede desbloquear una.
+                </p>
+              ) : (
+                <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {badges.map((b) => (
+                    <li key={b.id}>
+                      <BadgeCard badge={b} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </TabsContent>
           </Tabs>
         </section>
       </main>
+    </div>
+  );
+}
+
+function BadgeCard({ badge }: { badge: EarnedBadge }) {
+  const Icon = BADGE_ICONS[badge.id] ?? Award;
+  const rarityCls = RARITY_CLASS[badge.rarity] ?? "text-foreground/55";
+  return (
+    <div className="flex flex-col gap-3 border border-border p-4">
+      <div className="flex items-center justify-between">
+        <Icon className="h-6 w-6 text-foreground/70" aria-hidden />
+        <span
+          className={cn(
+            "font-mono text-[9px] uppercase tracking-[0.28em]",
+            rarityCls,
+          )}
+        >
+          {badge.rarity}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1">
+        <h3 className="font-display text-lg font-black leading-tight tracking-tight">
+          {badge.name}
+        </h3>
+        {badge.description && (
+          <p className="text-xs leading-relaxed text-foreground/55">
+            {badge.description}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
