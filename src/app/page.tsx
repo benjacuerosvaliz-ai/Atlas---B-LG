@@ -7,13 +7,17 @@ import { Globe } from "@/components/globe/Globe";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
-  // Live community KPIs from public trips. Falls back to 0 cleanly when
-  // the DB is empty — the CTA below converts visitors into the first row.
+  // Live community KPIs from public trips + registered users. Falls back
+  // to 0 cleanly when the DB is empty — the CTA at the bottom converts
+  // visitors into the first row.
   const supabase = await createClient();
-  const { data: tripsAgg } = await supabase
-    .from("trips")
-    .select("distance_km, country_codes")
-    .eq("visibility", "public");
+  const [{ data: tripsAgg }, { count: usersCount }] = await Promise.all([
+    supabase
+      .from("trips")
+      .select("distance_km, country_codes")
+      .eq("visibility", "public"),
+    supabase.from("users").select("*", { count: "exact", head: true }),
+  ]);
 
   const rows = tripsAgg ?? [];
   const totalKm = Math.round(
@@ -26,6 +30,7 @@ export default async function Home() {
       if (c) countries.add(c);
     }
   }
+  const totalUsers = usersCount ?? 0;
 
   return (
     <div className="relative min-h-screen bg-background">
@@ -35,7 +40,7 @@ export default async function Home() {
         {/* Hero */}
         <section className="grid grid-cols-1 items-center gap-10 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
           <div className="order-2 lg:order-1">
-            <Globe />
+            <Globe cameraDistance={3.2} />
           </div>
 
           <div className="order-1 flex flex-col gap-10 lg:order-2 lg:pl-4">
@@ -57,23 +62,8 @@ export default async function Home() {
               totalKm={totalKm}
               totalTrips={totalTrips}
               totalCountries={countries.size}
+              totalUsers={totalUsers}
             />
-
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
-              <Link
-                href="/login"
-                className="flex items-center justify-center gap-2 bg-foreground px-6 py-4 text-[10px] uppercase tracking-[0.28em] text-background hover:bg-foreground/80 transition-colors sm:justify-start"
-              >
-                Crear cuenta
-                <ArrowRight className="h-3 w-3" aria-hidden />
-              </Link>
-              <Link
-                href="/atlas"
-                className="flex items-center justify-center gap-2 px-1 py-2 text-[10px] uppercase tracking-[0.28em] text-foreground/70 hover:text-foreground transition-colors sm:justify-start"
-              >
-                Ver Atlas global →
-              </Link>
-            </div>
           </div>
         </section>
 
@@ -92,7 +82,7 @@ export default async function Home() {
             <Step
               n={1}
               icon={MapPin}
-              title="Creá tu cuenta"
+              title="Crea tu cuenta"
               body="Sin contraseñas — un correo, un enlace mágico, listo. 30 segundos."
             />
             <Step
@@ -108,6 +98,37 @@ export default async function Home() {
               body="Tus km, países y gear se acumulan. Comparte tu perfil público, suma medallas, sé top viajero."
             />
           </ol>
+        </section>
+
+        {/* CTAs finales */}
+        <section className="flex flex-col gap-6 border-t border-border pt-12">
+          <div className="flex flex-col gap-3">
+            <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/40">
+              Empezar
+            </span>
+            <h2 className="font-display text-3xl font-black leading-[1.05] tracking-tight md:text-4xl">
+              Suma tu primer kilómetro.
+            </h2>
+            <p className="max-w-md text-base leading-relaxed text-foreground/65">
+              Crea tu cuenta en 30 segundos. Sin contraseñas, sin formularios
+              largos.
+            </p>
+          </div>
+          <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+            <Link
+              href="/login"
+              className="flex items-center justify-center gap-2 bg-foreground px-6 py-4 text-[10px] uppercase tracking-[0.28em] text-background hover:bg-foreground/80 transition-colors sm:justify-start"
+            >
+              Crear cuenta
+              <ArrowRight className="h-3 w-3" aria-hidden />
+            </Link>
+            <Link
+              href="/atlas"
+              className="flex items-center justify-center gap-2 px-1 py-2 text-[10px] uppercase tracking-[0.28em] text-foreground/70 hover:text-foreground transition-colors sm:justify-start"
+            >
+              Ver Atlas global →
+            </Link>
+          </div>
         </section>
       </main>
 

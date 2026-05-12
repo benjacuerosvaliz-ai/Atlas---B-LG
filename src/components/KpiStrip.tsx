@@ -47,18 +47,21 @@ type KpiStripProps = {
   totalKm: number;
   totalTrips: number;
   totalCountries: number;
+  totalUsers: number;
 };
 
 export function KpiStrip({
   totalKm,
   totalTrips,
   totalCountries,
+  totalUsers,
 }: KpiStripProps) {
   return (
-    <div className="flex flex-col gap-6 border-t border-border pt-6 sm:flex-row sm:gap-12">
+    <div className="grid grid-cols-2 gap-x-8 gap-y-6 border-t border-border pt-6">
       <KpiItem value={totalKm} label="Kilómetros" suffix="km" />
       <KpiItem value={totalTrips} label="Aventuras" />
       <KpiItem value={totalCountries} label="Países" />
+      <KpiItem value={totalUsers} label="Clientes" />
     </div>
   );
 }
