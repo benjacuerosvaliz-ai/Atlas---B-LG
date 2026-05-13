@@ -658,63 +658,91 @@ export function Globe({
         </div>
       )}
 
-      {/* Pinned panel: trips at this location. */}
-      {pinned && (pinned.trips?.length ?? 0) > 0 && (
-        <div
-          className={cn(
-            "absolute left-3 right-3 z-30 flex flex-col gap-3 border border-border bg-card/95 p-3 backdrop-blur-sm",
-            panelPlacement === "top"
-              ? "top-3 md:left-auto md:right-3 md:top-3 md:max-w-sm"
-              : "bottom-3",
-          )}
-        >
-          <div className="flex items-baseline justify-between gap-3">
-            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/60">
-              {pinned.trips!.length === 1 ? "Viaje en" : "Viajes en"}{" "}
-              <span className="text-foreground">{pinned.name}</span>
-            </span>
-            <button
-              type="button"
-              onClick={() => setPinned(null)}
-              className="text-foreground/50 hover:text-foreground transition-colors"
-              aria-label="Cerrar"
-            >
-              <X className="h-4 w-4" />
-            </button>
+      {/* Pinned panel: PEOPLE who passed through this location. We dedupe
+          the marker's trip list by username so the same person doesn't
+          show up multiple times if they came back. Each row links to the
+          user's public profile, not the underlying trip. */}
+      {pinned && (pinned.trips?.length ?? 0) > 0 && (() => {
+        const seen = new Set<string>();
+        const people = (pinned.trips ?? []).filter((t) => {
+          const key = t.username ?? t.id;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return !!t.username;
+        });
+        if (people.length === 0) return null;
+        return (
+          <div
+            className={cn(
+              "absolute left-3 right-3 z-30 flex flex-col gap-3 border border-border bg-card/95 p-3 backdrop-blur-sm",
+              panelPlacement === "top"
+                ? "top-3 md:left-auto md:right-3 md:top-3 md:max-w-sm"
+                : "bottom-3",
+            )}
+          >
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/60">
+                {people.length === 1
+                  ? "1 persona ha estado en"
+                  : `${people.length} personas han estado en`}{" "}
+                <span className="text-foreground">{pinned.name}</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setPinned(null)}
+                className="text-foreground/50 hover:text-foreground transition-colors"
+                aria-label="Cerrar"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <ul className="flex flex-col">
+              {people.map((t) => {
+                const initials = (t.displayName ?? t.username ?? "·")
+                  .split(/\s+/)
+                  .slice(0, 2)
+                  .map((p) => p[0] ?? "")
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2);
+                return (
+                  <li key={t.username ?? t.id}>
+                    <Link
+                      href={`/u/${t.username}`}
+                      className="group flex items-center gap-3 border-b border-border/40 py-2 last:border-b-0 hover:bg-foreground/[0.04] transition-colors"
+                    >
+                      <Avatar className="h-10 w-10 shrink-0 bg-fog">
+                        {t.avatarUrl && (
+                          <AvatarImage
+                            src={t.avatarUrl}
+                            alt={t.displayName ?? t.username ?? ""}
+                          />
+                        )}
+                        <AvatarFallback className="bg-fog text-[10px] font-black text-foreground/75">
+                          {initials || "·"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                        <span className="truncate text-sm">
+                          {t.displayName ?? `@${t.username}`}
+                        </span>
+                        {t.username && (
+                          <span className="truncate font-mono text-[10px] text-foreground/45">
+                            @{t.username}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] uppercase tracking-[0.24em] text-foreground/40 group-hover:text-foreground transition-colors">
+                        Ver perfil →
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-          <ul className="flex flex-col gap-2">
-            {pinned.trips!.map((t) => (
-              <li key={t.id}>
-                <Link
-                  href={`/t/${t.id}`}
-                  className="group flex items-center gap-3 hover:bg-foreground/[0.04] transition-colors"
-                >
-                  {t.coverPhotoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={t.coverPhotoUrl}
-                      alt=""
-                      className="h-12 w-12 shrink-0 object-cover"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 shrink-0 bg-fog" />
-                  )}
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="truncate text-sm">{t.title}</span>
-                    <span className="truncate font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/50 tabular-nums">
-                      {t.username && <>@{t.username} · </>}
-                      {(t.distanceKm ?? 0).toLocaleString("es-CL")} km
-                    </span>
-                  </div>
-                  <span className="text-[10px] uppercase tracking-[0.24em] text-foreground/40 group-hover:text-foreground transition-colors">
-                    Ver →
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        );
+      })()}
 
       {hasInteractive && !hovered && !pinned && !tourActive && (
         <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 text-center">
