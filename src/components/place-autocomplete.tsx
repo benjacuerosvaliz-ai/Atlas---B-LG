@@ -10,6 +10,9 @@ type Props = {
   label: string;
   placeholder?: string;
   required?: boolean;
+  /** Optional quick-fill suggestion (e.g. user's home city). Shown as a
+   *  one-click chip under the input when empty — geocoded on click. */
+  suggestion?: string | null;
 };
 
 export function PlaceAutocomplete({
@@ -18,11 +21,13 @@ export function PlaceAutocomplete({
   label,
   placeholder = "Buscar lugar...",
   required,
+  suggestion,
 }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Place[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isPickingSuggestion, setIsPickingSuggestion] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Debounced search.
@@ -69,6 +74,27 @@ export function PlaceAutocomplete({
   function clear() {
     onChange(undefined);
     setQuery("");
+  }
+
+  async function pickSuggestion() {
+    if (!suggestion || isPickingSuggestion) return;
+    setIsPickingSuggestion(true);
+    try {
+      const places = await searchPlaces(suggestion);
+      const first = places[0];
+      if (first) {
+        pick(first);
+      } else {
+        // Fall back to typing the suggestion into the input so the user can
+        // refine it manually.
+        setQuery(suggestion);
+      }
+    } catch (err) {
+      console.error("[place-autocomplete] suggestion", err);
+      setQuery(suggestion);
+    } finally {
+      setIsPickingSuggestion(false);
+    }
   }
 
   return (
@@ -129,6 +155,22 @@ export function PlaceAutocomplete({
                 </li>
               ))}
             </ul>
+          )}
+
+          {suggestion && !query && (
+            <button
+              type="button"
+              onClick={pickSuggestion}
+              disabled={isPickingSuggestion}
+              className="mt-2 inline-flex items-center gap-2 border border-border px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-foreground/70 hover:border-foreground hover:text-foreground transition-colors disabled:opacity-50"
+            >
+              {isPickingSuggestion ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              ) : (
+                <MapPin className="h-3 w-3" aria-hidden />
+              )}
+              Usar {suggestion}
+            </button>
           )}
         </div>
       )}

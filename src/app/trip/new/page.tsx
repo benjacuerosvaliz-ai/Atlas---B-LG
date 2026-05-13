@@ -20,15 +20,17 @@ export default async function NewTripPage() {
 
   if (!user) redirect("/login?next=/trip/new");
 
-  // Force onboarding before letting them create a trip.
-  const { data: usernameRow } = await supabase
+  // Force onboarding before letting them create a trip. Also grab the city
+  // here so we can offer it as a quick-fill for "Inicio".
+  const { data: profile } = await supabase
     .from("users")
-    .select("username")
+    .select("username, city")
     .eq("id", user.id)
     .single();
-  if (isProvisionalUsername(usernameRow?.username as string | null)) {
+  if (isProvisionalUsername(profile?.username as string | null)) {
     redirect("/onboarding");
   }
+  const userCity = (profile?.city as string | null) ?? null;
 
   // Load the full catalog (hero image + product URL) and the user's
   // current collection in parallel. The wizard renders all models as a
@@ -69,7 +71,7 @@ export default async function NewTripPage() {
       </header>
 
       <main className="flex flex-1 justify-center px-6 pb-24 pt-4 md:px-10">
-        <TripWizard catalog={catalog} />
+        <TripWizard catalog={catalog} userCity={userCity} />
       </main>
     </div>
   );

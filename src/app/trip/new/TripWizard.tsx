@@ -21,9 +21,9 @@ const STEPS = [
   { id: "preview", label: "Revisar" },
 ] as const;
 
-type Props = { catalog: ProductModelLite[] };
+type Props = { catalog: ProductModelLite[]; userCity: string | null };
 
-export function TripWizard({ catalog }: Props) {
+export function TripWizard({ catalog, userCity }: Props) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<TripFormData>(EMPTY_FORM);
   const [isPending, startTransition] = useTransition();
@@ -66,7 +66,9 @@ export function TripWizard({ catalog }: Props) {
           transition={{ duration: 0.32, ease: easeOutExpo }}
           className="min-h-[420px]"
         >
-          {step === 0 && <StepPlace data={data} patch={patch} />}
+          {step === 0 && (
+            <StepPlace data={data} patch={patch} userCity={userCity} />
+          )}
           {step === 1 && <StepDates data={data} patch={patch} />}
           {step === 2 && <StepActivity data={data} patch={patch} />}
           {step === 3 && <StepPhotos data={data} patch={patch} />}

@@ -25,20 +25,31 @@ export function StepPhotos({ data, patch }: Props) {
     const list = Array.from(files);
     const remaining = MAX_PHOTOS - data.photos.length;
     if (remaining <= 0) {
-      setError(`Máximo ${MAX_PHOTOS} fotos por viaje.`);
+      setError(`Ya tienes el máximo de ${MAX_PHOTOS} fotos. Elimina alguna antes de subir más.`);
       return;
     }
-    const toUpload = list.slice(0, remaining).filter((f) => {
+    // Don't silently drop the extras — tell the user clearly and abort so
+    // they can re-pick exactly the ones they want. The native gallery on
+    // iOS/Android doesn't enforce a count limit, so this is the only place
+    // we can stop them.
+    if (list.length > remaining) {
+      setError(
+        `Elegiste ${list.length} fotos pero solo puedes subir ${remaining} más (máximo ${MAX_PHOTOS} por viaje). Elige de nuevo seleccionando ${remaining} ${remaining === 1 ? "foto" : "fotos"}.`,
+      );
+      return;
+    }
+    const toUpload: File[] = [];
+    for (const f of list) {
       if (!f.type.startsWith("image/")) {
         setError("Solo imágenes (JPG, PNG, HEIC).");
-        return false;
+        return;
       }
       if (f.size > MAX_BYTES) {
         setError(`Cada foto debe pesar menos de 10 MB. "${f.name}" se pasa.`);
-        return false;
+        return;
       }
-      return true;
-    });
+      toUpload.push(f);
+    }
 
     setUploading(toUpload.length);
     const uploaded: UploadedAsset[] = [];
@@ -77,6 +88,24 @@ export function StepPhotos({ data, patch }: Props) {
         </p>
       </div>
 
+      {uploading > 0 && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-4 border-2 border-foreground bg-foreground/[0.04] px-5 py-4"
+        >
+          <Loader2 className="h-6 w-6 shrink-0 animate-spin text-foreground" />
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm font-medium text-foreground">
+              Subiendo {uploading} {uploading === 1 ? "foto" : "fotos"}...
+            </span>
+            <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/55">
+              No cierres esta ventana
+            </span>
+          </div>
+        </div>
+      )}
+
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -88,12 +117,16 @@ export function StepPhotos({ data, patch }: Props) {
           setIsDragging(false);
           if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
         }}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => uploading === 0 && inputRef.current?.click()}
+        aria-disabled={uploading > 0}
         className={cn(
-          "flex cursor-pointer flex-col items-center justify-center gap-3 border-2 border-dashed py-12 px-6 transition-colors",
+          "flex flex-col items-center justify-center gap-3 border-2 border-dashed py-12 px-6 transition-colors",
+          uploading > 0
+            ? "cursor-not-allowed border-border opacity-50"
+            : "cursor-pointer",
           isDragging
             ? "border-foreground bg-foreground/[0.04]"
-            : "border-border hover:border-foreground/60",
+            : uploading === 0 && "border-border hover:border-foreground/60",
         )}
       >
         <ImageIcon className="h-6 w-6 text-foreground/50" aria-hidden />
@@ -102,7 +135,6 @@ export function StepPhotos({ data, patch }: Props) {
         </p>
         <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/40">
           {data.photos.length} / {MAX_PHOTOS} subidas
-          {uploading > 0 && ` · ${uploading} en cola`}
         </p>
         <input
           ref={inputRef}
@@ -117,7 +149,14 @@ export function StepPhotos({ data, patch }: Props) {
         />
       </div>
 
-      {error && <p className="font-mono text-xs text-destructive">{error}</p>}
+      {error && (
+        <p
+          role="alert"
+          className="border-l-2 border-destructive bg-destructive/[0.06] px-4 py-3 font-mono text-xs leading-relaxed text-destructive"
+        >
+          {error}
+        </p>
+      )}
 
       {data.photos.length > 0 && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">

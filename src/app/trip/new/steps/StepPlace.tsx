@@ -6,9 +6,10 @@ import type { TripFormData } from "../types";
 type Props = {
   data: TripFormData;
   patch: (partial: Partial<TripFormData>) => void;
+  userCity: string | null;
 };
 
-export function StepPlace({ data, patch }: Props) {
+export function StepPlace({ data, patch, userCity }: Props) {
   return (
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-3">
@@ -31,6 +32,7 @@ export function StepPlace({ data, patch }: Props) {
           onChange={(place) => patch({ startPlace: place })}
           placeholder="Pucón, Chile"
           required
+          suggestion={userCity}
         />
         <PlaceAutocomplete
           label="Destino (opcional)"

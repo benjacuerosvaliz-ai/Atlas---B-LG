@@ -54,6 +54,12 @@ export async function searchPlaces(query: string, signal?: AbortSignal): Promise
   url.searchParams.set("autocomplete", "true");
   url.searchParams.set("limit", "6");
   url.searchParams.set("language", "es");
+  // Bias autocomplete to Andean Spanish-speaking countries so "Maitencillo"
+  // doesn't resolve to a homonym 600 km away on another continent.
+  url.searchParams.set("country", "cl,ar,pe,bo,ec,co,uy,br,mx,es");
+  // Center proximity around Santiago — most BØLG customers are Chilean.
+  // Mapbox prioritizes closer results when proximity is set.
+  url.searchParams.set("proximity", "-70.65,-33.45");
 
   const res = await fetch(url, { signal });
   if (!res.ok) {
