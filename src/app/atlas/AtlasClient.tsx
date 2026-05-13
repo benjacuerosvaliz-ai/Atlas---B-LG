@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronRight, Radio, X } from "lucide-react";
+import { ArrowRight, ChevronRight, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BolgWordmark } from "@/components/bolg-wordmark";
@@ -348,7 +348,6 @@ export function AtlasClient({ initialTrips, topTravelers, authedUsername }: Prop
         height="100dvh"
         cameraDistance={4.2}
         panelPlacement="top"
-        autoTour
       />
 
       {/* Bottom HUD — small live counter + scrollable country chips */}
@@ -356,16 +355,19 @@ export function AtlasClient({ initialTrips, topTravelers, authedUsername }: Prop
         <div className="pointer-events-auto flex flex-col gap-3 border border-border bg-card/85 p-3 backdrop-blur-sm md:p-4">
           <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.28em] text-foreground/65">
-              <span className="relative flex h-1.5 w-1.5">
-                <span
-                  className={cn(
-                    "absolute inset-0 rounded-full bg-aurora/60",
-                    pulseAt > 0 ? "animate-ping" : "opacity-0",
-                  )}
-                />
-                <Radio className="h-3 w-3 text-aurora" aria-hidden />
-              </span>
-              En vivo · La comunidad
+              La comunidad BØLG
+              {/* Transient "+ Nuevo viaje" badge — sólo aparece al recibir
+                  un INSERT por realtime y se va solo en 4s. Cuando no hay
+                  nada nuevo, el label queda limpio (histórico). */}
+              {pulseAt > 0 && (
+                <span className="flex items-center gap-1 text-aurora">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="absolute inset-0 animate-ping rounded-full bg-aurora/60" />
+                    <span className="relative h-1.5 w-1.5 rounded-full bg-aurora" />
+                  </span>
+                  Nuevo viaje
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-4 font-mono text-[11px] tabular-nums text-foreground/85 md:text-xs">
               <Counter value={trips.length} label="viajes" />
