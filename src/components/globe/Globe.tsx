@@ -104,8 +104,15 @@ function PhotoSprite({
   handlers: PointHandlers;
 }) {
   const rawUrl = point.trips?.[0]?.coverPhotoUrl;
+  // r_max → Cloudinary recorta la imagen en círculo. bo_*solid_rgb:f4f1ea
+  // → borde fino color bone, que aísla visualmente las fotos cuando se
+  // tocan en el globo. f_auto entrega PNG/WebP automáticamente porque
+  // r_max requiere alfa.
   const url = rawUrl
-    ? cloudinaryTransform(rawUrl, "c_fill,g_auto,w_200,h_200,q_auto,f_auto")
+    ? cloudinaryTransform(
+        rawUrl,
+        "c_fill,g_auto,w_220,h_220,r_max,bo_2px_solid_rgb:f4f1ea,q_auto,f_auto",
+      )
     : null;
   const texture = useLoader(THREE.TextureLoader, url ?? "");
   useMemo(() => {
@@ -146,7 +153,17 @@ function PhotoSprite({
           : undefined
       }
     >
-      <spriteMaterial map={texture} sizeAttenuation transparent={false} depthWrite />
+      {/* transparent + alphaTest hace que las esquinas transparentes (fuera
+          del círculo) no oculten otros markers detrás. depthWrite false
+          para no causar z-fighting entre sprites pero seguir leyendo el
+          depth del globo (la foto queda oculta cuando está al otro lado). */}
+      <spriteMaterial
+        map={texture}
+        sizeAttenuation
+        transparent
+        alphaTest={0.5}
+        depthWrite={false}
+      />
     </sprite>
   );
 }
