@@ -175,7 +175,7 @@ export default async function DashboardPage() {
                     href={`/sku/${m.id}`}
                     className="group flex flex-col gap-1.5"
                   >
-                    <div className="h-[80px] w-[80px] overflow-hidden bg-fog opacity-80 transition-opacity group-hover:opacity-100">
+                    <div className="h-[80px] w-[80px] overflow-hidden rounded-full border border-border bg-fog opacity-80 transition-opacity group-hover:opacity-100">
                       {m.hero_image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img

@@ -150,7 +150,7 @@ export default async function TripPage({ params }: Props) {
                     href={`/sku/${m.id}`}
                     className="group flex flex-col gap-2"
                   >
-                    <div className="aspect-square overflow-hidden bg-fog">
+                    <div className="aspect-square overflow-hidden rounded-full border border-border bg-fog">
                       {m.hero_image_url ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
