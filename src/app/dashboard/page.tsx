@@ -24,14 +24,17 @@ export default async function DashboardPage() {
     redirect("/login");
   }
 
-  // Force onboarding if still on the provisional username — happens after
-  // the very first magic-link signup before they pick a real handle.
-  const { data: usernameRow } = await supabase
+  // Force onboarding if still on the provisional username OR if the PIN
+  // hasn't been set yet (mandatory since the PIN auth rollout).
+  const { data: gateRow } = await supabase
     .from("users")
-    .select("username")
+    .select("username, pin_hash")
     .eq("id", user.id)
     .single();
-  if (isProvisionalUsername(usernameRow?.username as string | null)) {
+  if (
+    isProvisionalUsername(gateRow?.username as string | null) ||
+    !gateRow?.pin_hash
+  ) {
     redirect("/onboarding");
   }
 

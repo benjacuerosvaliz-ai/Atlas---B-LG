@@ -10,6 +10,7 @@ export type OnboardingState = {
 
 const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
 const INSTAGRAM_RE = /^[a-z0-9._]{1,30}$/;
+const PIN_RE = /^\d{4}$/;
 const RESERVED_USERNAMES = new Set([
   "admin",
   "atlas",
@@ -35,6 +36,30 @@ export async function completeOnboarding(
   } = await supabase.auth.getUser();
   if (!user) return { status: "error", message: "Tu sesión expiró." };
 
+  const mode = String(formData.get("mode") ?? "full") as "full" | "pin-only";
+  const pin = String(formData.get("pin") ?? "");
+  const pinConfirm = String(formData.get("pin_confirm") ?? "");
+
+  if (!PIN_RE.test(pin)) {
+    return { status: "error", message: "El PIN debe ser exactamente 4 dígitos." };
+  }
+  if (pin !== pinConfirm) {
+    return { status: "error", message: "Los dos PINs no coinciden." };
+  }
+
+  // PIN-only flow: existing user just needs to set their PIN.
+  if (mode === "pin-only") {
+    const { error: pinErr } = await supabase.rpc("set_my_pin", { p_pin: pin });
+    if (pinErr) {
+      return {
+        status: "error",
+        message: pinErr.message ?? "No se pudo guardar el PIN.",
+      };
+    }
+    redirect("/dashboard");
+  }
+
+  // Full flow: username + identity + PIN + (optional gear).
   const username = String(formData.get("username") ?? "").trim().toLowerCase();
   const displayName = String(formData.get("display_name") ?? "").trim();
   const city = String(formData.get("city") ?? "").trim();
@@ -78,12 +103,21 @@ export async function completeOnboarding(
     if (profileErr.code === "23505") {
       return {
         status: "error",
-        message: "Ese username ya está tomado. Probá otro.",
+        message: "Ese username ya está tomado. Prueba otro.",
       };
     }
     return {
       status: "error",
       message: profileErr.message ?? "No se pudo guardar.",
+    };
+  }
+
+  // Set the PIN via RPC (security definer, hashes with bcrypt server-side).
+  const { error: pinErr } = await supabase.rpc("set_my_pin", { p_pin: pin });
+  if (pinErr) {
+    return {
+      status: "error",
+      message: `Perfil guardado pero el PIN falló: ${pinErr.message ?? "error"}. Reintenta.`,
     };
   }
 

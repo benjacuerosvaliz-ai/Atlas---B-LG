@@ -24,10 +24,13 @@ export default async function NewTripPage() {
   // here so we can offer it as a quick-fill for "Inicio".
   const { data: profile } = await supabase
     .from("users")
-    .select("username, city")
+    .select("username, city, pin_hash")
     .eq("id", user.id)
     .single();
-  if (isProvisionalUsername(profile?.username as string | null)) {
+  if (
+    isProvisionalUsername(profile?.username as string | null) ||
+    !profile?.pin_hash
+  ) {
     redirect("/onboarding");
   }
   const userCity = (profile?.city as string | null) ?? null;

@@ -15,12 +15,15 @@ export type ModelLite = {
 const INITIAL_STATE: OnboardingState = { status: "idle" };
 
 type Props = {
+  mode: "full" | "pin-only";
   initialDisplayName: string;
   catalog: ModelLite[];
 };
 
-export function OnboardingForm({ initialDisplayName, catalog }: Props) {
+export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
+  const [pin, setPin] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
   const [state, formAction, isPending] = useActionState(
     completeOnboarding,
     INITIAL_STATE,
@@ -32,136 +35,212 @@ export function OnboardingForm({ initialDisplayName, catalog }: Props) {
     );
   }
 
+  const pinTooShort = pin.length > 0 && pin.length < 4;
+  const pinMismatch =
+    pin.length === 4 && pinConfirm.length === 4 && pin !== pinConfirm;
+
   return (
     <form action={formAction} className="flex flex-col gap-10">
-      <input
-        type="hidden"
-        name="selected_models"
-        value={selectedModels.join(",")}
-      />
+      <input type="hidden" name="mode" value={mode} />
+      {mode === "full" && (
+        <input
+          type="hidden"
+          name="selected_models"
+          value={selectedModels.join(",")}
+        />
+      )}
+
+      {mode === "full" && (
+        <section className="flex flex-col gap-6 border-t border-border pt-6">
+          <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+            Tu identidad
+          </span>
+
+          <Field
+            label="Nombre"
+            hint="Tu nombre como quieres aparecer."
+            required
+          >
+            <input
+              name="display_name"
+              type="text"
+              required
+              minLength={1}
+              maxLength={80}
+              defaultValue={initialDisplayName}
+              autoComplete="name"
+              placeholder="Benja Cueros Valiz"
+              className={inputCls}
+            />
+          </Field>
+
+          <Field
+            label="Nombre de usuario"
+            hint="Sin espacios. Solo minúsculas, números y guión bajo."
+            required
+          >
+            <input
+              name="username"
+              type="text"
+              required
+              minLength={3}
+              maxLength={30}
+              pattern="^[a-z0-9_]+$"
+              autoComplete="username"
+              placeholder="benja"
+              autoFocus
+              className={inputCls}
+            />
+          </Field>
+
+          <Field label="Ciudad" hint="Opcional. Para ubicarte en el mapa.">
+            <input
+              name="city"
+              type="text"
+              maxLength={80}
+              autoComplete="address-level2"
+              placeholder="Santiago"
+              className={inputCls}
+            />
+          </Field>
+
+          <Field
+            label="Instagram"
+            hint="Opcional. Tu nombre de Instagram, sin el @."
+          >
+            <input
+              name="instagram_handle"
+              type="text"
+              maxLength={30}
+              placeholder="bolgconcept"
+              className={inputCls}
+            />
+          </Field>
+        </section>
+      )}
 
       <section className="flex flex-col gap-6 border-t border-border pt-6">
-        <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-          Tu identidad
-        </span>
-
-        <Field label="Nombre" hint="Tu nombre como quieres aparecer." required>
-          <input
-            name="display_name"
-            type="text"
-            required
-            minLength={1}
-            maxLength={80}
-            defaultValue={initialDisplayName}
-            autoComplete="name"
-            placeholder="Benja Cueros Valiz"
-            className={inputCls}
-          />
-        </Field>
-
-        <Field
-          label="Nombre de usuario"
-          hint="Sin espacios. Solo minúsculas, números y guión bajo."
-          required
-        >
-          <input
-            name="username"
-            type="text"
-            required
-            minLength={3}
-            maxLength={30}
-            pattern="^[a-z0-9_]+$"
-            autoComplete="username"
-            placeholder="benja"
-            autoFocus
-            className={inputCls}
-          />
-        </Field>
-
-        <Field label="Ciudad" hint="Opcional. Para ubicarte en el mapa.">
-          <input
-            name="city"
-            type="text"
-            maxLength={80}
-            autoComplete="address-level2"
-            placeholder="Santiago"
-            className={inputCls}
-          />
-        </Field>
-
-        <Field
-          label="Instagram"
-          hint="Opcional. Tu nombre de Instagram, sin el @."
-        >
-          <input
-            name="instagram_handle"
-            type="text"
-            maxLength={30}
-            placeholder="bolgconcept"
-            className={inputCls}
-          />
-        </Field>
-      </section>
-
-      <section className="flex flex-col gap-5 border-t border-border pt-6">
-        <div className="flex items-baseline justify-between">
+        <div className="flex flex-col gap-2">
           <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-            Tus BØLG · opcional
+            Tu PIN de acceso
           </span>
-          {selectedModels.length > 0 && (
-            <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
-              {selectedModels.length} marcados
-            </span>
-          )}
+          <p className="max-w-lg text-sm leading-relaxed text-foreground/55">
+            4 dígitos. Es tu llave rápida para entrar la próxima vez sin
+            esperar el correo. Memorízalo bien — si lo olvidas, vuelves a
+            pedir un magic link y lo cambias acá.
+          </p>
         </div>
-        <p className="max-w-lg text-sm leading-relaxed text-foreground/55">
-          Marca los que ya tienes para empezar tu equipaje. Puedes agregar
-          más después.
-        </p>
-        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
-          {catalog.map((m) => {
-            const selected = selectedModels.includes(m.id);
-            return (
-              <li key={m.id}>
-                <button
-                  type="button"
-                  onClick={() => toggleModel(m.id)}
-                  className={cn(
-                    "group flex w-full flex-col gap-1.5 overflow-hidden border transition-colors",
-                    selected
-                      ? "border-foreground"
-                      : "border-border hover:border-foreground/60",
-                  )}
-                >
-                  <div className="relative aspect-square bg-fog">
-                    {m.heroImageUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={m.heroImageUrl}
-                        alt={m.name}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="grid h-full w-full place-items-center text-foreground/30">
-                        <ImageOff className="h-5 w-5" />
-                      </div>
-                    )}
-                    {selected && (
-                      <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center bg-foreground text-background">
-                        <Check className="h-3 w-3" />
-                      </span>
-                    )}
-                  </div>
-                  <span className="px-2 pb-2 text-left text-[11px] leading-tight">
-                    {m.name}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+
+        <Field label="PIN (4 dígitos)" hint="Solo números." required>
+          <input
+            name="pin"
+            type="password"
+            inputMode="numeric"
+            pattern="\d{4}"
+            required
+            maxLength={4}
+            value={pin}
+            onChange={(e) =>
+              setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
+            }
+            autoComplete="new-password"
+            autoFocus={mode === "pin-only"}
+            placeholder="••••"
+            className={cn(inputCls, "tracking-[0.5em] text-center font-mono")}
+          />
+        </Field>
+
+        <Field label="Confirmar PIN" hint="Repítelo." required>
+          <input
+            name="pin_confirm"
+            type="password"
+            inputMode="numeric"
+            pattern="\d{4}"
+            required
+            maxLength={4}
+            value={pinConfirm}
+            onChange={(e) =>
+              setPinConfirm(e.target.value.replace(/\D/g, "").slice(0, 4))
+            }
+            autoComplete="new-password"
+            placeholder="••••"
+            className={cn(inputCls, "tracking-[0.5em] text-center font-mono")}
+          />
+        </Field>
+
+        {pinTooShort && (
+          <p className="font-mono text-xs text-foreground/55">
+            Necesitas 4 dígitos.
+          </p>
+        )}
+        {pinMismatch && (
+          <p className="font-mono text-xs text-destructive">
+            Los dos PINs no coinciden.
+          </p>
+        )}
       </section>
+
+      {mode === "full" && (
+        <section className="flex flex-col gap-5 border-t border-border pt-6">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+              Tus BØLG · opcional
+            </span>
+            {selectedModels.length > 0 && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
+                {selectedModels.length} marcados
+              </span>
+            )}
+          </div>
+          <p className="max-w-lg text-sm leading-relaxed text-foreground/55">
+            Marca los que ya tienes para empezar tu equipaje. Puedes agregar
+            más después.
+          </p>
+          <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+            {catalog.map((m) => {
+              const selected = selectedModels.includes(m.id);
+              return (
+                <li key={m.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleModel(m.id)}
+                    className={cn(
+                      "group flex w-full flex-col gap-1.5 overflow-hidden border transition-colors",
+                      selected
+                        ? "border-foreground"
+                        : "border-border hover:border-foreground/60",
+                    )}
+                  >
+                    <div className="relative aspect-square bg-fog">
+                      {m.heroImageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={m.heroImageUrl}
+                          alt={m.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="grid h-full w-full place-items-center text-foreground/30">
+                          <ImageOff className="h-5 w-5" />
+                        </div>
+                      )}
+                      {selected && (
+                        <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center bg-foreground text-background">
+                          <Check className="h-3 w-3" />
+                        </span>
+                      )}
+                    </div>
+                    <span className="px-2 pb-2 text-left text-[11px] leading-tight">
+                      {m.name}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {state.status === "error" && (
         <p className="font-mono text-xs text-destructive">{state.message}</p>
@@ -170,7 +249,7 @@ export function OnboardingForm({ initialDisplayName, catalog }: Props) {
       <div className="flex justify-end border-t border-border pt-6">
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || pinMismatch || pin.length !== 4}
           className="flex items-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.28em] text-background hover:bg-foreground/80 transition-colors disabled:opacity-30"
         >
           {isPending ? (

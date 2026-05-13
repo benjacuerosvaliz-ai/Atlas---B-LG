@@ -34,11 +34,11 @@ export default async function LoginPage({ searchParams }: Props) {
               Ingresar
             </span>
             <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
-              Te enviamos un enlace de acceso.
+              Entra al Atlas.
             </h1>
             <p className="text-base leading-relaxed text-foreground/60">
-              Sin contraseñas. Pones tu correo, revisas tu bandeja, vuelves.
-              Si es tu primera vez, te creamos la cuenta automáticamente.
+              Usuario + PIN si ya tienes cuenta. Magic link si es tu primera
+              vez o si olvidaste el PIN.
             </p>
           </div>
 
