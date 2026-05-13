@@ -16,7 +16,7 @@ const STEPS = [
   { id: "place", label: "Lugar" },
   { id: "dates", label: "Fechas" },
   { id: "activity", label: "Actividad" },
-  { id: "photos", label: "Fotos" },
+  { id: "photos", label: "Foto" },
   { id: "products", label: "Productos" },
   { id: "preview", label: "Revisar" },
 ] as const;

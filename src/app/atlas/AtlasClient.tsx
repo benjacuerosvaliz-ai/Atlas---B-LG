@@ -215,6 +215,26 @@ export function AtlasClient({ initialTrips, catalog }: Props) {
         </div>
       </header>
 
+      {/* Narrative metrics hero — sits below the header, centered, so it
+          reads as an opening line on first arrival ("the BØLG travelers
+          have been to..."). When the user starts filtering, this stays in
+          sync with the filtered set. */}
+      <div className="pointer-events-none absolute inset-x-0 top-[64px] z-20 flex justify-center px-4 md:top-[80px]">
+        <div className="pointer-events-auto flex max-w-3xl flex-col items-center gap-3 border border-border bg-card/85 px-5 py-4 text-center backdrop-blur-sm md:px-8 md:py-5">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.32em] text-foreground/60">
+            <Radio className="h-3 w-3 text-aurora" aria-hidden />
+            En vivo · {modelFilter ? "Filtrado" : "Toda la comunidad"}
+          </span>
+          <p className="text-balance text-base leading-snug text-foreground/80 md:text-lg">
+            Los viajeros BØLG han estado en{" "}
+            <HeroNumber value={countries} /> {countries === 1 ? "país" : "países"},
+            recorrido <HeroNumber value={totalKm} /> km en{" "}
+            <HeroNumber value={filtered.length} />{" "}
+            {filtered.length === 1 ? "viaje" : "viajes"}.
+          </p>
+        </div>
+      </div>
+
       {/* Globe full screen */}
       <Globe
         points={points}
@@ -223,62 +243,44 @@ export function AtlasClient({ initialTrips, catalog }: Props) {
         panelPlacement="top"
       />
 
-      {/* HUD: stats + filters, glassmorphic, top-left, mobile-friendly */}
+      {/* HUD: filters, glassmorphic, bottom-left, mobile-friendly */}
       <div className="pointer-events-none absolute left-0 right-0 bottom-0 z-20 flex flex-col gap-3 px-4 pb-6 md:left-6 md:right-auto md:bottom-6 md:max-w-xs md:px-0 md:pb-0">
-        <div className="pointer-events-auto flex flex-col gap-4 border border-border bg-card/85 p-4 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <Radio className="h-3 w-3 text-aurora" aria-hidden />
-            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/60">
-              En vivo
-            </span>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Stat value={filtered.length} label="Viajes" />
-            <Stat value={totalKm} label="Km" />
-            <Stat value={countries} label="Países" />
-          </div>
-          <div className="flex flex-col gap-3 border-t border-border pt-3">
-            <FilterRow label="Modelo">
-              <select
-                value={modelFilter}
-                onChange={(e) => setModelFilter(e.target.value)}
-                className={selectCls}
-              >
-                <option value="">Todos los BØLG</option>
-                {catalog.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </FilterRow>
-            {modelFilter && (
-              <button
-                type="button"
-                onClick={() => setModelFilter("")}
-                className="flex items-center gap-1.5 self-start text-[10px] uppercase tracking-[0.28em] text-foreground/55 hover:text-foreground transition-colors"
-              >
-                <X className="h-3 w-3" />
-                Limpiar filtro
-              </button>
-            )}
-          </div>
+        <div className="pointer-events-auto flex flex-col gap-3 border border-border bg-card/85 p-4 backdrop-blur-sm">
+          <FilterRow label="Filtrar por modelo">
+            <select
+              value={modelFilter}
+              onChange={(e) => setModelFilter(e.target.value)}
+              className={selectCls}
+            >
+              <option value="">Todos los BØLG</option>
+              {catalog.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </FilterRow>
+          {modelFilter && (
+            <button
+              type="button"
+              onClick={() => setModelFilter("")}
+              className="flex items-center gap-1.5 self-start text-[10px] uppercase tracking-[0.28em] text-foreground/55 hover:text-foreground transition-colors"
+            >
+              <X className="h-3 w-3" />
+              Limpiar filtro
+            </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
 
-function Stat({ value, label }: { value: number; label: string }) {
+function HeroNumber({ value }: { value: number }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="font-mono text-xl font-bold tabular-nums leading-none tracking-tight">
-        {value.toLocaleString("es-CL")}
-      </span>
-      <span className="text-[9px] uppercase tracking-[0.28em] text-foreground/50">
-        {label}
-      </span>
-    </div>
+    <span className="font-display text-2xl font-black tabular-nums tracking-tight text-foreground md:text-3xl">
+      {value.toLocaleString("es-CL")}
+    </span>
   );
 }
 

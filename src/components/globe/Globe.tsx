@@ -6,7 +6,7 @@ import { X } from "lucide-react";
 import Link from "next/link";
 import { Suspense, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
-import { cn } from "@/lib/utils";
+import { cloudinaryTransform, cn } from "@/lib/utils";
 
 const ROTATION_PERIOD_SEC = 120; // 1 vuelta completa cada 120s (concepto §4)
 
@@ -22,7 +22,9 @@ export type GlobePoint = {
   lng: number;
   /** Place name shown on hover, e.g. "Santiago", "Pucón". */
   name?: string;
-  /** Trips that touched this location. Click reveals them. */
+  /** Trips that touched this location. Click reveals them. The first trip
+   *  (most recent, since the caller sorts by start_at desc) is the one
+   *  whose cover photo gets used as the marker thumbnail. */
   trips?: GlobeTripMeta[];
   /** Reserved for future heatmap intensity. Defaults to 1. */
   intensity?: number;
@@ -66,6 +68,172 @@ type PointHandlers = {
   onPick: (point: GlobePoint) => void;
 };
 
+// Photo billboard. Renders a square sprite at the lat/lng with the trip's
+// cover photo as texture. Sprites auto-billboard (always face camera) and
+// are correctly occluded by the globe geometry, so they hide when on the
+// far side. Texture loading suspends; the parent Suspense boundary keeps
+// the rest of the scene rendering while photos load.
+function PhotoSprite({
+  point,
+  position,
+  pinned,
+  handlers,
+}: {
+  point: GlobePoint;
+  position: [number, number, number];
+  pinned: boolean;
+  handlers: PointHandlers;
+}) {
+  const rawUrl = point.trips?.[0]?.coverPhotoUrl;
+  // Deliver a small square crop instead of the full upload — keeps texture
+  // memory low when there are many markers on screen.
+  const url = rawUrl
+    ? cloudinaryTransform(rawUrl, "c_fill,g_auto,w_200,h_200,q_auto,f_auto")
+    : null;
+  const texture = useLoader(THREE.TextureLoader, url ?? "");
+  useMemo(() => {
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+  }, [texture]);
+
+  const interactive = !!point.name && (point.trips?.length ?? 0) > 0;
+  const size = pinned ? 0.14 : 0.085;
+
+  return (
+    <sprite
+      position={position}
+      scale={[size, size, size]}
+      onPointerOver={
+        interactive
+          ? (e: ThreeEvent<PointerEvent>) => {
+              e.stopPropagation();
+              handlers.onHover(point);
+              document.body.style.cursor = "pointer";
+            }
+          : undefined
+      }
+      onPointerOut={
+        interactive
+          ? () => {
+              handlers.onLeave();
+              document.body.style.cursor = "default";
+            }
+          : undefined
+      }
+      onClick={
+        interactive
+          ? (e: ThreeEvent<MouseEvent>) => {
+              e.stopPropagation();
+              handlers.onPick(point);
+            }
+          : undefined
+      }
+    >
+      <spriteMaterial
+        map={texture}
+        sizeAttenuation
+        transparent={false}
+        depthWrite
+      />
+    </sprite>
+  );
+}
+
+// Fallback dot for points without a cover photo (and the Suspense fallback
+// while textures are loading).
+function DotMarker({
+  point,
+  position,
+  pinned,
+  handlers,
+}: {
+  point: GlobePoint;
+  position: [number, number, number];
+  pinned: boolean;
+  handlers: PointHandlers;
+}) {
+  const interactive = !!point.name && (point.trips?.length ?? 0) > 0;
+  const radius = pinned ? 0.026 : interactive ? 0.018 : 0.013;
+  return (
+    <mesh
+      position={position}
+      onPointerOver={
+        interactive
+          ? (e: ThreeEvent<PointerEvent>) => {
+              e.stopPropagation();
+              handlers.onHover(point);
+              document.body.style.cursor = "pointer";
+            }
+          : undefined
+      }
+      onPointerOut={
+        interactive
+          ? () => {
+              handlers.onLeave();
+              document.body.style.cursor = "default";
+            }
+          : undefined
+      }
+      onClick={
+        interactive
+          ? (e: ThreeEvent<MouseEvent>) => {
+              e.stopPropagation();
+              handlers.onPick(point);
+            }
+          : undefined
+      }
+    >
+      <sphereGeometry args={[radius, 12, 12]} />
+      <meshBasicMaterial color={pinned ? "#f4f1ea" : "#d4a373"} />
+    </mesh>
+  );
+}
+
+function Marker({
+  point,
+  pinned,
+  handlers,
+}: {
+  point: GlobePoint;
+  pinned: boolean;
+  handlers: PointHandlers;
+}) {
+  // Sit photo markers slightly further out than dot markers so they don't
+  // clip into the surface.
+  const hasPhoto = !!point.trips?.[0]?.coverPhotoUrl;
+  const position = latLngToVec3(point.lat, point.lng, hasPhoto ? 1.05 : 1.005);
+
+  if (!hasPhoto) {
+    return (
+      <DotMarker
+        point={point}
+        position={position}
+        pinned={pinned}
+        handlers={handlers}
+      />
+    );
+  }
+  return (
+    <Suspense
+      fallback={
+        <DotMarker
+          point={point}
+          position={position}
+          pinned={pinned}
+          handlers={handlers}
+        />
+      }
+    >
+      <PhotoSprite
+        point={point}
+        position={position}
+        pinned={pinned}
+        handlers={handlers}
+      />
+    </Suspense>
+  );
+}
+
 function Earth({
   spinning,
   points,
@@ -91,54 +259,59 @@ function Earth({
     }
   });
 
+  // Collision resolution: when multiple points fall within a tiny arc of
+  // each other their photos overlap unreadably. Group them by a coarse
+  // lat/lng bucket and only render the most relevant one in each bucket
+  // (the one with the most recent trip, which is already first in `trips`
+  // since the caller sorts by start_at desc).
+  const renderedPoints = useMemo(() => {
+    const BUCKET_DEG = 2.5;
+    const bucketKey = (lat: number, lng: number) =>
+      `${Math.round(lat / BUCKET_DEG)}|${Math.round(lng / BUCKET_DEG)}`;
+    const byBucket = new Map<string, GlobePoint>();
+    for (const p of points) {
+      const key = bucketKey(p.lat, p.lng);
+      const existing = byBucket.get(key);
+      if (!existing) {
+        byBucket.set(key, p);
+        continue;
+      }
+      // Prefer the bucket representative that actually has a photo. If
+      // both have photos, keep the one with more trips (more interesting
+      // cluster). Equal? keep the existing one — order is deterministic.
+      const newHasPhoto = !!p.trips?.[0]?.coverPhotoUrl;
+      const oldHasPhoto = !!existing.trips?.[0]?.coverPhotoUrl;
+      if (newHasPhoto && !oldHasPhoto) {
+        byBucket.set(key, p);
+        continue;
+      }
+      if (newHasPhoto === oldHasPhoto) {
+        if ((p.trips?.length ?? 0) > (existing.trips?.length ?? 0)) {
+          byBucket.set(key, p);
+        }
+      }
+    }
+    return Array.from(byBucket.values());
+  }, [points]);
+
   return (
     <group ref={groupRef}>
       <mesh>
         <sphereGeometry args={[1, 96, 96]} />
         <meshStandardMaterial map={colorMap} roughness={1} metalness={0} />
       </mesh>
-      {points.length > 0 && (
+      {renderedPoints.length > 0 && (
         <group>
-          {points.map((p) => {
-            const pos = latLngToVec3(p.lat, p.lng);
-            const interactive = !!p.name && (p.trips?.length ?? 0) > 0;
+          {renderedPoints.map((p) => {
             const key = `${p.lat},${p.lng},${p.name ?? ""}`;
             const pinned = pinnedKey === key;
-            // Slightly larger when interactive; bigger again when pinned.
-            const radius = pinned ? 0.026 : interactive ? 0.018 : 0.013;
             return (
-              <mesh
+              <Marker
                 key={key}
-                position={pos}
-                onPointerOver={
-                  interactive
-                    ? (e: ThreeEvent<PointerEvent>) => {
-                        e.stopPropagation();
-                        handlers.onHover(p);
-                        document.body.style.cursor = "pointer";
-                      }
-                    : undefined
-                }
-                onPointerOut={
-                  interactive
-                    ? () => {
-                        handlers.onLeave();
-                        document.body.style.cursor = "default";
-                      }
-                    : undefined
-                }
-                onClick={
-                  interactive
-                    ? (e: ThreeEvent<MouseEvent>) => {
-                        e.stopPropagation();
-                        handlers.onPick(p);
-                      }
-                    : undefined
-                }
-              >
-                <sphereGeometry args={[radius, 12, 12]} />
-                <meshBasicMaterial color={pinned ? "#f4f1ea" : "#d4a373"} />
-              </mesh>
+                point={p}
+                pinned={pinned}
+                handlers={handlers}
+              />
             );
           })}
         </group>
@@ -317,7 +490,7 @@ export function Globe({
       {hasInteractive && !hovered && !pinned && (
         <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 text-center">
           <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/35">
-            Pasa por un punto · zoom con la rueda
+            Toca una foto · zoom con la rueda
           </span>
         </div>
       )}

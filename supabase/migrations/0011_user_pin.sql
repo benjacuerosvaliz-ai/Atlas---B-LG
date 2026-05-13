@@ -132,3 +132,9 @@ $$;
 
 revoke all on function public.verify_pin_for_username(text, text) from public;
 grant execute on function public.verify_pin_for_username(text, text) to anon, authenticated;
+
+-- Force PostgREST to reload its schema cache so the new RPCs are visible
+-- immediately. Without this, the first call from the app may get back
+-- "Could not find the function ... in the schema cache" until Supabase
+-- naturally refreshes (which can take up to a minute).
+notify pgrst, 'reload schema';

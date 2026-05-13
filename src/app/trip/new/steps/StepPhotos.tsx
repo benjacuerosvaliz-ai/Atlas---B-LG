@@ -6,7 +6,9 @@ import { uploadToCloudinary, type UploadedAsset } from "@/lib/cloudinary-upload"
 import { cn } from "@/lib/utils";
 import type { TripFormData } from "../types";
 
-const MAX_PHOTOS = 5;
+// One photo per trip. Keeps the Atlas clean (one image per pin) and the
+// upload flow snappy. If we ever want a gallery view, this becomes >1.
+const MAX_PHOTOS = 1;
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
 type Props = {
@@ -25,16 +27,14 @@ export function StepPhotos({ data, patch }: Props) {
     const list = Array.from(files);
     const remaining = MAX_PHOTOS - data.photos.length;
     if (remaining <= 0) {
-      setError(`Ya tienes el máximo de ${MAX_PHOTOS} fotos. Elimina alguna antes de subir más.`);
+      setError(
+        "Ya subiste tu foto. Elimínala si quieres cambiarla por otra.",
+      );
       return;
     }
-    // Don't silently drop the extras — tell the user clearly and abort so
-    // they can re-pick exactly the ones they want. The native gallery on
-    // iOS/Android doesn't enforce a count limit, so this is the only place
-    // we can stop them.
     if (list.length > remaining) {
       setError(
-        `Elegiste ${list.length} fotos pero solo puedes subir ${remaining} más (máximo ${MAX_PHOTOS} por viaje). Elige de nuevo seleccionando ${remaining} ${remaining === 1 ? "foto" : "fotos"}.`,
+        `Elegiste ${list.length} fotos pero solo puedes subir 1 por viaje. Elige una sola.`,
       );
       return;
     }
@@ -45,7 +45,7 @@ export function StepPhotos({ data, patch }: Props) {
         return;
       }
       if (f.size > MAX_BYTES) {
-        setError(`Cada foto debe pesar menos de 10 MB. "${f.name}" se pasa.`);
+        setError(`La foto debe pesar menos de 10 MB. "${f.name}" se pasa.`);
         return;
       }
       toUpload.push(f);
@@ -59,7 +59,7 @@ export function StepPhotos({ data, patch }: Props) {
         uploaded.push(asset);
       } catch (err) {
         console.error("[upload]", err);
-        setError("Una foto no se pudo subir. Reintenta.");
+        setError("La foto no se pudo subir. Reintenta.");
       } finally {
         setUploading((n) => n - 1);
       }
@@ -73,6 +73,8 @@ export function StepPhotos({ data, patch }: Props) {
     patch({ photos: data.photos.filter((p) => p.publicId !== publicId) });
   }
 
+  const hasPhoto = data.photos.length > 0;
+
   return (
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-3">
@@ -80,11 +82,11 @@ export function StepPhotos({ data, patch }: Props) {
           La evidencia
         </span>
         <h2 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
-          Las fotos que cuentan.
+          La foto que cuenta.
         </h2>
         <p className="max-w-md text-base leading-relaxed text-foreground/60">
-          Hasta {MAX_PHOTOS} fotos, máx 10 MB cada una. Opcional pero
-          recomendado — el Atlas se ve mejor con imágenes que sin.
+          Una sola, máx 10 MB. Opcional pero recomendado — el Atlas se ve
+          mejor con imágenes que sin. Es la que aparecerá sobre el mapa.
         </p>
       </div>
 
@@ -97,7 +99,7 @@ export function StepPhotos({ data, patch }: Props) {
           <Loader2 className="h-6 w-6 shrink-0 animate-spin text-foreground" />
           <div className="flex flex-col gap-0.5">
             <span className="text-sm font-medium text-foreground">
-              Subiendo {uploading} {uploading === 1 ? "foto" : "fotos"}...
+              Subiendo tu foto...
             </span>
             <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/55">
               No cierres esta ventana
@@ -106,48 +108,49 @@ export function StepPhotos({ data, patch }: Props) {
         </div>
       )}
 
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setIsDragging(true);
-        }}
-        onDragLeave={() => setIsDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setIsDragging(false);
-          if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
-        }}
-        onClick={() => uploading === 0 && inputRef.current?.click()}
-        aria-disabled={uploading > 0}
-        className={cn(
-          "flex flex-col items-center justify-center gap-3 border-2 border-dashed py-12 px-6 transition-colors",
-          uploading > 0
-            ? "cursor-not-allowed border-border opacity-50"
-            : "cursor-pointer",
-          isDragging
-            ? "border-foreground bg-foreground/[0.04]"
-            : uploading === 0 && "border-border hover:border-foreground/60",
-        )}
-      >
-        <ImageIcon className="h-6 w-6 text-foreground/50" aria-hidden />
-        <p className="text-center text-sm text-foreground/70">
-          Arrastra tus fotos o haz click para elegir
-        </p>
-        <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/40">
-          {data.photos.length} / {MAX_PHOTOS} subidas
-        </p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          className="hidden"
-          onChange={(e) => {
-            if (e.target.files) addFiles(e.target.files);
-            e.target.value = "";
+      {!hasPhoto && (
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setIsDragging(true);
           }}
-        />
-      </div>
+          onDragLeave={() => setIsDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setIsDragging(false);
+            if (e.dataTransfer.files.length > 0) addFiles(e.dataTransfer.files);
+          }}
+          onClick={() => uploading === 0 && inputRef.current?.click()}
+          aria-disabled={uploading > 0}
+          className={cn(
+            "flex flex-col items-center justify-center gap-3 border-2 border-dashed py-12 px-6 transition-colors",
+            uploading > 0
+              ? "cursor-not-allowed border-border opacity-50"
+              : "cursor-pointer",
+            isDragging
+              ? "border-foreground bg-foreground/[0.04]"
+              : uploading === 0 && "border-border hover:border-foreground/60",
+          )}
+        >
+          <ImageIcon className="h-6 w-6 text-foreground/50" aria-hidden />
+          <p className="text-center text-sm text-foreground/70">
+            Arrastra tu foto o haz click para elegir
+          </p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/40">
+            Una sola, la que mejor represente el viaje
+          </p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files) addFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+        </div>
+      )}
 
       {error && (
         <p
@@ -158,39 +161,28 @@ export function StepPhotos({ data, patch }: Props) {
         </p>
       )}
 
-      {data.photos.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
-          {data.photos.map((p) => (
-            <div
-              key={p.publicId}
-              className="group relative aspect-square overflow-hidden bg-fog"
+      {hasPhoto && (
+        <div className="flex flex-col gap-2">
+          <div className="group relative max-w-sm overflow-hidden bg-fog">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={data.photos[0].url}
+              alt=""
+              className="h-auto w-full object-cover"
+              loading="lazy"
+            />
+            <button
+              type="button"
+              onClick={() => remove(data.photos[0].publicId)}
+              className="absolute top-2 right-2 grid h-9 w-9 place-items-center bg-ink/80 text-bone hover:bg-ink transition-colors"
+              aria-label="Eliminar foto"
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={p.url}
-                alt=""
-                className="h-full w-full object-cover"
-                loading="lazy"
-              />
-              <button
-                type="button"
-                onClick={() => remove(p.publicId)}
-                className="absolute top-1 right-1 grid h-7 w-7 place-items-center bg-ink/80 text-bone opacity-0 transition-opacity hover:bg-ink group-hover:opacity-100"
-                aria-label="Eliminar foto"
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-          {uploading > 0 &&
-            Array.from({ length: uploading }).map((_, i) => (
-              <div
-                key={`up-${i}`}
-                className="grid aspect-square place-items-center border border-dashed border-border"
-              >
-                <Loader2 className="h-5 w-5 animate-spin text-foreground/50" />
-              </div>
-            ))}
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/40">
+            Foto guardada · click la X para cambiarla
+          </span>
         </div>
       )}
     </div>

@@ -54,8 +54,10 @@ export function StepPreview({ data, catalog }: Props) {
             </span>
           </Row>
         ) : null}
-        <Row label="Fotos">
-          <span className="font-mono">{data.photos.length} subidas</span>
+        <Row label="Foto">
+          <span className="font-mono">
+            {data.photos.length > 0 ? "Sí" : "Sin foto"}
+          </span>
         </Row>
         <Row label="BØLG tageados">
           {claimed.length === 0 ? (
@@ -76,16 +78,13 @@ export function StepPreview({ data, catalog }: Props) {
       </dl>
 
       {data.photos.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
-          {data.photos.map((p) => (
-            <div
-              key={p.publicId}
-              className="aspect-square overflow-hidden bg-fog"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt="" className="h-full w-full object-cover" />
-            </div>
-          ))}
+        <div className="max-w-sm overflow-hidden bg-fog">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={data.photos[0].url}
+            alt=""
+            className="h-auto w-full object-cover"
+          />
         </div>
       )}
     </div>
