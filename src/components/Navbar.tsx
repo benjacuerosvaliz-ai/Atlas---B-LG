@@ -8,7 +8,7 @@ export function Navbar() {
         <BolgWordmark href="/" />
         <nav className="flex items-center gap-5">
           <Link
-            href="/atlas"
+            href="/"
             className="hidden text-[10px] uppercase tracking-[0.32em] text-foreground/60 hover:text-foreground transition-colors sm:inline"
           >
             Atlas global
@@ -18,6 +18,12 @@ export function Navbar() {
             className="hidden text-[10px] uppercase tracking-[0.32em] text-foreground/60 hover:text-foreground transition-colors sm:inline"
           >
             Comunidad
+          </Link>
+          <Link
+            href="/sobre"
+            className="hidden text-[10px] uppercase tracking-[0.32em] text-foreground/60 hover:text-foreground transition-colors sm:inline"
+          >
+            ¿Cómo funciona?
           </Link>
           <Link
             href="/login"

@@ -4,8 +4,9 @@ import { Canvas, useFrame, useLoader, type ThreeEvent } from "@react-three/fiber
 import { OrbitControls, Stars } from "@react-three/drei";
 import { X } from "lucide-react";
 import Link from "next/link";
-import { Suspense, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cloudinaryTransform, cn } from "@/lib/utils";
 
 const ROTATION_PERIOD_SEC = 120; // 1 vuelta completa cada 120s (concepto §4)
@@ -15,6 +16,9 @@ export type GlobeTripMeta = {
   title: string;
   distanceKm: number | null;
   coverPhotoUrl: string | null;
+  username?: string | null;
+  displayName?: string | null;
+  avatarUrl?: string | null;
 };
 
 export type GlobePoint = {
@@ -30,23 +34,26 @@ export type GlobePoint = {
   intensity?: number;
 };
 
+export type GlobeArc = {
+  id: string;
+  startLat: number;
+  startLng: number;
+  endLat: number;
+  endLng: number;
+  /** When the arc was created — drives the fade-in / fade-out timeline. */
+  createdAt: number;
+};
+
 type Props = {
   points?: GlobePoint[];
+  arcs?: GlobeArc[];
   height?: string;
-  /**
-   * Initial camera distance from the globe center. User can still zoom in
-   * down to minDistance (1.35) or out to maxDistance (5).
-   * - 2.7 = decorative tight framing (home hero default)
-   * - 3.6 = mid framing for mini-globes on profile / sku pages
-   * - 4.2 = far framing for the full Atlas, forces user to zoom in
-   */
   cameraDistance?: number;
-  /**
-   * Where the click-to-pin trip panel anchors. Default "bottom" works for
-   * mini-globes that live inside a page. Full-viewport globes (like the
-   * Atlas) should use "top" so the panel doesn't overlap a bottom HUD.
-   */
   panelPlacement?: "top" | "bottom";
+  /** Run a cinematic intro: rotate to 3 random photo points, hold briefly
+   *  on each with a name/km overlay, then hand control back to the user.
+   *  Cancels on first user interaction. */
+  autoTour?: boolean;
 };
 
 function latLngToVec3(
@@ -62,6 +69,19 @@ function latLngToVec3(
   return [x, y, z];
 }
 
+/** Y-rotation that brings the given longitude to face the +Z camera. */
+function targetYForLng(lng: number): number {
+  return -((lng + 90) * Math.PI) / 180;
+}
+
+/** Shortest signed angular delta from `from` to `to` (handles wrap-around). */
+function shortestAngleDelta(from: number, to: number): number {
+  let delta = (to - from) % (Math.PI * 2);
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  return delta;
+}
+
 type PointHandlers = {
   onHover: (point: GlobePoint) => void;
   onLeave: () => void;
@@ -69,24 +89,21 @@ type PointHandlers = {
 };
 
 // Photo billboard. Renders a square sprite at the lat/lng with the trip's
-// cover photo as texture. Sprites auto-billboard (always face camera) and
-// are correctly occluded by the globe geometry, so they hide when on the
-// far side. Texture loading suspends; the parent Suspense boundary keeps
-// the rest of the scene rendering while photos load.
+// cover photo as texture. Sprites auto-billboard and occlude with the globe.
 function PhotoSprite({
   point,
   position,
   pinned,
+  focused,
   handlers,
 }: {
   point: GlobePoint;
   position: [number, number, number];
   pinned: boolean;
+  focused: boolean;
   handlers: PointHandlers;
 }) {
   const rawUrl = point.trips?.[0]?.coverPhotoUrl;
-  // Deliver a small square crop instead of the full upload — keeps texture
-  // memory low when there are many markers on screen.
   const url = rawUrl
     ? cloudinaryTransform(rawUrl, "c_fill,g_auto,w_200,h_200,q_auto,f_auto")
     : null;
@@ -97,7 +114,7 @@ function PhotoSprite({
   }, [texture]);
 
   const interactive = !!point.name && (point.trips?.length ?? 0) > 0;
-  const size = pinned ? 0.14 : 0.085;
+  const size = focused ? 0.18 : pinned ? 0.14 : 0.085;
 
   return (
     <sprite
@@ -129,31 +146,26 @@ function PhotoSprite({
           : undefined
       }
     >
-      <spriteMaterial
-        map={texture}
-        sizeAttenuation
-        transparent={false}
-        depthWrite
-      />
+      <spriteMaterial map={texture} sizeAttenuation transparent={false} depthWrite />
     </sprite>
   );
 }
 
-// Fallback dot for points without a cover photo (and the Suspense fallback
-// while textures are loading).
 function DotMarker({
   point,
   position,
   pinned,
+  focused,
   handlers,
 }: {
   point: GlobePoint;
   position: [number, number, number];
   pinned: boolean;
+  focused: boolean;
   handlers: PointHandlers;
 }) {
   const interactive = !!point.name && (point.trips?.length ?? 0) > 0;
-  const radius = pinned ? 0.026 : interactive ? 0.018 : 0.013;
+  const radius = focused ? 0.034 : pinned ? 0.026 : interactive ? 0.018 : 0.013;
   return (
     <mesh
       position={position}
@@ -184,7 +196,7 @@ function DotMarker({
       }
     >
       <sphereGeometry args={[radius, 12, 12]} />
-      <meshBasicMaterial color={pinned ? "#f4f1ea" : "#d4a373"} />
+      <meshBasicMaterial color={focused || pinned ? "#f4f1ea" : "#d4a373"} />
     </mesh>
   );
 }
@@ -192,14 +204,14 @@ function DotMarker({
 function Marker({
   point,
   pinned,
+  focused,
   handlers,
 }: {
   point: GlobePoint;
   pinned: boolean;
+  focused: boolean;
   handlers: PointHandlers;
 }) {
-  // Sit photo markers slightly further out than dot markers so they don't
-  // clip into the surface.
   const hasPhoto = !!point.trips?.[0]?.coverPhotoUrl;
   const position = latLngToVec3(point.lat, point.lng, hasPhoto ? 1.05 : 1.005);
 
@@ -209,6 +221,7 @@ function Marker({
         point={point}
         position={position}
         pinned={pinned}
+        focused={focused}
         handlers={handlers}
       />
     );
@@ -220,6 +233,7 @@ function Marker({
           point={point}
           position={position}
           pinned={pinned}
+          focused={focused}
           handlers={handlers}
         />
       }
@@ -228,22 +242,93 @@ function Marker({
         point={point}
         position={position}
         pinned={pinned}
+        focused={focused}
         handlers={handlers}
       />
     </Suspense>
   );
 }
 
+// Curved arc from start → end, lifted above the globe surface. Fades in,
+// holds, then fades out. Lifecycle is driven by createdAt timestamp and
+// useFrame; the parent is responsible for un-mounting after ~6.5s.
+function Arc({ arc }: { arc: GlobeArc }) {
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  const geom = useMemo(() => {
+    const s = new THREE.Vector3(...latLngToVec3(arc.startLat, arc.startLng, 1.01));
+    const e = new THREE.Vector3(...latLngToVec3(arc.endLat, arc.endLng, 1.01));
+    const mid = s.clone().lerp(e, 0.5);
+    const dist = s.distanceTo(e);
+    // Lift the midpoint outward, proportional to chord length, so longer
+    // arcs bulge more dramatically. Clamp so absurdly long arcs don't fly
+    // off the screen.
+    const lift = 1 + Math.min(0.6, dist * 0.4);
+    mid.normalize().multiplyScalar(lift);
+    const curve = new THREE.QuadraticBezierCurve3(s, mid, e);
+    return new THREE.TubeGeometry(curve, 48, 0.006, 8, false);
+  }, [arc.startLat, arc.startLng, arc.endLat, arc.endLng]);
+
+  useFrame(() => {
+    if (!matRef.current) return;
+    const elapsed = (Date.now() - arc.createdAt) / 1000;
+    let opacity = 0;
+    if (elapsed < 0.5) {
+      opacity = elapsed / 0.5; // fade in
+    } else if (elapsed < 4.5) {
+      opacity = 1; // hold
+    } else {
+      opacity = Math.max(0, 1 - (elapsed - 4.5) / 1.5); // fade out
+    }
+    matRef.current.opacity = opacity;
+  });
+
+  return (
+    <mesh geometry={geom}>
+      <meshBasicMaterial
+        ref={matRef}
+        color="#7aa9ff"
+        transparent
+        opacity={0}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
+type TourState = {
+  index: number;
+  phase: "flying" | "showing" | "done";
+  points: GlobePoint[];
+  flyStart: number;
+  flyFromY: number;
+  flyDelta: number;
+  showStart: number;
+};
+
 function Earth({
-  spinning,
+  pointsRotation,
   points,
+  arcs,
   handlers,
   pinnedKey,
+  focusKey,
+  spinning,
+  tourRef,
+  onTourPointReached,
+  onTourEnd,
 }: {
-  spinning: boolean;
+  pointsRotation: { x: number; y: number };
   points: GlobePoint[];
+  arcs: GlobeArc[];
   handlers: PointHandlers;
   pinnedKey: string | null;
+  focusKey: string | null;
+  spinning: boolean;
+  tourRef: React.MutableRefObject<TourState | null>;
+  onTourPointReached: (idx: number) => void;
+  onTourEnd: () => void;
 }) {
   const groupRef = useRef<THREE.Group>(null);
   const colorMap = useLoader(THREE.TextureLoader, "/textures/earth.jpg");
@@ -254,62 +339,78 @@ function Earth({
   }, [colorMap]);
 
   useFrame((_, delta) => {
-    if (spinning && groupRef.current) {
-      groupRef.current.rotation.y += (delta * Math.PI * 2) / ROTATION_PERIOD_SEC;
+    const g = groupRef.current;
+    if (!g) return;
+    const tour = tourRef.current;
+
+    if (tour && tour.phase === "flying") {
+      const elapsed = (Date.now() - tour.flyStart) / 1000;
+      const FLY_DURATION = 1.4;
+      const t = Math.min(1, elapsed / FLY_DURATION);
+      const eased = 1 - Math.pow(1 - t, 3); // easeOutCubic
+      g.rotation.y = tour.flyFromY + tour.flyDelta * eased;
+      if (t >= 1) {
+        tour.phase = "showing";
+        tour.showStart = Date.now();
+        onTourPointReached(tour.index);
+      }
+      return;
+    }
+
+    if (tour && tour.phase === "showing") {
+      const elapsed = (Date.now() - tour.showStart) / 1000;
+      const HOLD_DURATION = 2.0;
+      // Keep a tiny drift during the "showing" hold so the globe feels
+      // alive rather than frozen.
+      g.rotation.y += (delta * Math.PI * 2) / (ROTATION_PERIOD_SEC * 4);
+      if (elapsed >= HOLD_DURATION) {
+        if (tour.index + 1 >= tour.points.length) {
+          tour.phase = "done";
+          onTourEnd();
+        } else {
+          tour.index += 1;
+          tour.phase = "flying";
+          tour.flyStart = Date.now();
+          tour.flyFromY = g.rotation.y;
+          const targetY = targetYForLng(tour.points[tour.index].lng);
+          tour.flyDelta = shortestAngleDelta(g.rotation.y, targetY);
+        }
+      }
+      return;
+    }
+
+    if (spinning) {
+      g.rotation.y += (delta * Math.PI * 2) / ROTATION_PERIOD_SEC;
     }
   });
 
-  // Collision resolution: when multiple points fall within a tiny arc of
-  // each other their photos overlap unreadably. Group them by a coarse
-  // lat/lng bucket and only render the most relevant one in each bucket
-  // (the one with the most recent trip, which is already first in `trips`
-  // since the caller sorts by start_at desc).
-  const renderedPoints = useMemo(() => {
-    const BUCKET_DEG = 2.5;
-    const bucketKey = (lat: number, lng: number) =>
-      `${Math.round(lat / BUCKET_DEG)}|${Math.round(lng / BUCKET_DEG)}`;
-    const byBucket = new Map<string, GlobePoint>();
-    for (const p of points) {
-      const key = bucketKey(p.lat, p.lng);
-      const existing = byBucket.get(key);
-      if (!existing) {
-        byBucket.set(key, p);
-        continue;
-      }
-      // Prefer the bucket representative that actually has a photo. If
-      // both have photos, keep the one with more trips (more interesting
-      // cluster). Equal? keep the existing one — order is deterministic.
-      const newHasPhoto = !!p.trips?.[0]?.coverPhotoUrl;
-      const oldHasPhoto = !!existing.trips?.[0]?.coverPhotoUrl;
-      if (newHasPhoto && !oldHasPhoto) {
-        byBucket.set(key, p);
-        continue;
-      }
-      if (newHasPhoto === oldHasPhoto) {
-        if ((p.trips?.length ?? 0) > (existing.trips?.length ?? 0)) {
-          byBucket.set(key, p);
-        }
-      }
-    }
-    return Array.from(byBucket.values());
-  }, [points]);
-
   return (
-    <group ref={groupRef}>
+    <group ref={groupRef} rotation={[pointsRotation.x, pointsRotation.y, 0]}>
       <mesh>
         <sphereGeometry args={[1, 96, 96]} />
         <meshStandardMaterial map={colorMap} roughness={1} metalness={0} />
       </mesh>
-      {renderedPoints.length > 0 && (
+
+      {arcs.length > 0 && (
         <group>
-          {renderedPoints.map((p) => {
+          {arcs.map((a) => (
+            <Arc key={a.id} arc={a} />
+          ))}
+        </group>
+      )}
+
+      {points.length > 0 && (
+        <group>
+          {points.map((p) => {
             const key = `${p.lat},${p.lng},${p.name ?? ""}`;
             const pinned = pinnedKey === key;
+            const focused = focusKey === key;
             return (
               <Marker
                 key={key}
                 point={p}
                 pinned={pinned}
+                focused={focused}
                 handlers={handlers}
               />
             );
@@ -356,21 +457,65 @@ function Atmosphere() {
 
 export function Globe({
   points = [],
+  arcs = [],
   height = "min(80vh, 700px)",
   cameraDistance = 2.7,
   panelPlacement = "bottom",
+  autoTour = false,
 }: Props) {
-  // Auto-rotation runs until the first user interaction (drag, zoom, click)
-  // and then stays off for the rest of the session — easier to click points
-  // on a still globe than a moving one.
   const [spinning, setSpinning] = useState(true);
   const [hovered, setHovered] = useState<GlobePoint | null>(null);
   const [pinned, setPinned] = useState<GlobePoint | null>(null);
+  const [tourPointKey, setTourPointKey] = useState<string | null>(null);
+  const [tourActive, setTourActive] = useState(autoTour);
+  const tourRef = useRef<TourState | null>(null);
+
+  // Bootstrap the auto-tour: pick up to 3 random points that have photos
+  // and queue them into the tour state machine. If no photo markers exist
+  // yet, skip the tour entirely — there's nothing cinematic to fly to.
+  useEffect(() => {
+    if (!autoTour) return;
+    // Wait one tick so the points prop has settled.
+    const t = setTimeout(() => {
+      const candidates = points.filter(
+        (p) => !!p.trips?.[0]?.coverPhotoUrl && !!p.name,
+      );
+      if (candidates.length === 0) {
+        setTourActive(false);
+        return;
+      }
+      // Sample up to 3 without replacement.
+      const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+      const tourPoints = shuffled.slice(0, 3);
+      const firstTarget = targetYForLng(tourPoints[0].lng);
+      tourRef.current = {
+        index: 0,
+        phase: "flying",
+        points: tourPoints,
+        flyStart: Date.now(),
+        flyFromY: 0,
+        flyDelta: shortestAngleDelta(0, firstTarget),
+        showStart: 0,
+      };
+    }, 50);
+    return () => clearTimeout(t);
+    // We intentionally only seed the tour ONCE on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function cancelTour() {
+    if (tourRef.current && tourRef.current.phase !== "done") {
+      tourRef.current.phase = "done";
+    }
+    setTourActive(false);
+    setTourPointKey(null);
+  }
 
   const handlers: PointHandlers = {
     onHover: (p) => setHovered(p),
     onLeave: () => setHovered(null),
     onPick: (p) => {
+      cancelTour();
       setSpinning(false);
       setPinned(p);
     },
@@ -382,6 +527,14 @@ export function Globe({
   const pinnedKey = pinned
     ? `${pinned.lat},${pinned.lng},${pinned.name ?? ""}`
     : null;
+
+  // Trip displayed during the tour's "showing" phase, for the DOM overlay.
+  const tourPoint = tourPointKey
+    ? points.find(
+        (p) => `${p.lat},${p.lng},${p.name ?? ""}` === tourPointKey,
+      ) ?? null
+    : null;
+  const tourTrip = tourPoint?.trips?.[0] ?? null;
 
   return (
     <div
@@ -400,10 +553,22 @@ export function Globe({
         <directionalLight position={[-5, -2, -3]} intensity={0.18} color="#5bc0be" />
         <Suspense fallback={null}>
           <Earth
-            spinning={spinning}
+            pointsRotation={{ x: 0, y: 0 }}
             points={points}
+            arcs={arcs}
             handlers={handlers}
             pinnedKey={pinnedKey}
+            focusKey={tourPointKey}
+            spinning={spinning && !tourActive}
+            tourRef={tourRef}
+            onTourPointReached={(idx) => {
+              const p = tourRef.current?.points[idx];
+              if (p) setTourPointKey(`${p.lat},${p.lng},${p.name ?? ""}`);
+            }}
+            onTourEnd={() => {
+              setTourActive(false);
+              setTourPointKey(null);
+            }}
           />
           <Atmosphere />
           <Stars radius={80} depth={50} count={1800} factor={2.2} fade speed={0.4} />
@@ -411,22 +576,85 @@ export function Globe({
         <OrbitControls
           enablePan={false}
           enableZoom
+          enableRotate={!tourActive}
           minDistance={1.35}
           maxDistance={5}
           zoomSpeed={0.5}
           rotateSpeed={0.45}
           enableDamping
           dampingFactor={0.08}
-          onStart={() => setSpinning(false)}
+          onStart={() => {
+            setSpinning(false);
+            cancelTour();
+          }}
         />
       </Canvas>
 
-      {/* Hover label: just the place name. */}
-      {hovered && !pinned && (
-        <div className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 border border-border bg-card/85 px-3 py-1.5 backdrop-blur-sm">
-          <span className="text-[11px] uppercase tracking-[0.24em]">
-            {hovered.name}
+      {/* Tour overlay: name + author + km of the currently-focused point. */}
+      {tourActive && tourPoint && tourTrip && (
+        <button
+          type="button"
+          onClick={() => {
+            cancelTour();
+            setPinned(tourPoint);
+          }}
+          className="pointer-events-auto absolute left-1/2 top-1/2 z-10 flex -translate-x-1/2 translate-y-[60%] flex-col items-center gap-2 border border-foreground/30 bg-card/80 px-5 py-3 text-center backdrop-blur-sm transition-colors hover:border-foreground"
+        >
+          <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/55">
+            {tourPoint.name}
           </span>
+          <div className="flex items-center gap-2">
+            <Avatar className="h-7 w-7 bg-fog">
+              {tourTrip.avatarUrl && (
+                <AvatarImage
+                  src={tourTrip.avatarUrl}
+                  alt={tourTrip.displayName ?? tourTrip.username ?? ""}
+                />
+              )}
+              <AvatarFallback className="bg-fog text-[10px] font-black text-foreground/75">
+                {(tourTrip.displayName ?? tourTrip.username ?? "·")
+                  .slice(0, 2)
+                  .toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm">
+              {tourTrip.displayName ?? `@${tourTrip.username ?? "?"}`}
+              <span className="px-1.5 text-foreground/35">·</span>
+              <span className="font-mono tabular-nums">
+                {(tourTrip.distanceKm ?? 0).toLocaleString("es-CL")} km
+              </span>
+            </span>
+          </div>
+        </button>
+      )}
+
+      {/* Hover label: place name + author avatar peek (the "humanize each
+          marker" extra). Only shows when not pinned and not on tour. */}
+      {hovered && !pinned && !tourActive && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-10 flex -translate-x-1/2 items-center gap-2 border border-border bg-card/85 px-3 py-1.5 backdrop-blur-sm">
+          {(() => {
+            const trip = hovered.trips?.[0];
+            return (
+              <>
+                {trip?.avatarUrl && (
+                  <Avatar className="h-5 w-5 shrink-0 bg-fog">
+                    <AvatarImage
+                      src={trip.avatarUrl}
+                      alt={trip.displayName ?? trip.username ?? ""}
+                    />
+                  </Avatar>
+                )}
+                <span className="text-[11px] uppercase tracking-[0.24em]">
+                  {hovered.name}
+                </span>
+                {trip?.username && (
+                  <span className="font-mono text-[10px] text-foreground/55">
+                    · @{trip.username}
+                  </span>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -473,7 +701,8 @@ export function Globe({
                   )}
                   <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span className="truncate text-sm">{t.title}</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/50 tabular-nums">
+                    <span className="truncate font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/50 tabular-nums">
+                      {t.username && <>@{t.username} · </>}
                       {(t.distanceKm ?? 0).toLocaleString("es-CL")} km
                     </span>
                   </div>
@@ -487,7 +716,7 @@ export function Globe({
         </div>
       )}
 
-      {hasInteractive && !hovered && !pinned && (
+      {hasInteractive && !hovered && !pinned && !tourActive && (
         <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 text-center">
           <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/35">
             Toca una foto · zoom con la rueda
