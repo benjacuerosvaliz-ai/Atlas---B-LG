@@ -176,11 +176,9 @@ export function AtlasClient({ initialTrips, topTravelers, authedUsername }: Prop
     return () => clearTimeout(timer);
   }, [pulseAt]);
 
-  // Filtered trips by selected country (or all if none selected).
-  const filtered = useMemo(() => {
-    if (!selectedCountry) return trips;
-    return trips.filter((t) => t.countryCodes.includes(selectedCountry));
-  }, [trips, selectedCountry]);
+  // The globe always shows the full community — selecting a country only
+  // changes the side panel, not the markers. Keeps the "world map of BØLG"
+  // intact while letting users drill into a country's people.
 
   // Globe markers — same place-name dedupe as before.
   const points = useMemo(() => {
@@ -208,7 +206,7 @@ export function AtlasClient({ initialTrips, topTravelers, authedUsername }: Prop
         b.trips.push(trip);
       }
     }
-    for (const t of filtered) {
+    for (const t of trips) {
       const meta = {
         id: t.id,
         title: tripDisplayTitle({
@@ -232,7 +230,7 @@ export function AtlasClient({ initialTrips, topTravelers, authedUsername }: Prop
       out.push({ lat: b.lat, lng: b.lng, name: b.name, trips: b.trips });
     }
     return out;
-  }, [filtered]);
+  }, [trips]);
 
   // Live KPIs (always for the FULL set, not filtered — the narrative
   // metric is "the whole community", not "just Chile").
@@ -559,7 +557,9 @@ function CountryPanel({
       <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
         <div className="flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/55">
-            {travelers.length === 1 ? "1 viajero en" : `${travelers.length} viajeros en`}
+            {travelers.length === 1
+              ? "1 persona ha estado en"
+              : `${travelers.length} personas han estado en`}
           </span>
           <h2 className="flex items-center gap-2 font-display text-2xl font-black leading-tight tracking-tight">
             <span className="text-3xl leading-none">{flag}</span>
@@ -613,11 +613,6 @@ function CountryPanel({
                         @{t.username}
                       </span>
                     )}
-                    <span className="truncate font-mono text-[10px] tabular-nums text-foreground/65">
-                      {t.trips} {t.trips === 1 ? "viaje" : "viajes"}
-                      <span className="px-1.5 text-foreground/35">·</span>
-                      {Math.round(t.km).toLocaleString("es-CL")} km
-                    </span>
                   </div>
                   <ChevronRight className="h-4 w-4 shrink-0 text-foreground/35 group-hover:text-foreground transition-colors" />
                 </Link>
