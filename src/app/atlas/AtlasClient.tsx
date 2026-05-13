@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight, Radio, X } from "lucide-react";
+import { ArrowRight, ChevronRight, Radio, X } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BolgWordmark } from "@/components/bolg-wordmark";
@@ -419,6 +419,20 @@ export function AtlasClient({ initialTrips, topTravelers, authedUsername }: Prop
               </div>
             </div>
           )}
+
+          {/* Subtle community invitation. Only shown to anonymous visitors —
+              authed users are already part of the community. Anchored at
+              the bottom of the HUD so it feels like part of the data, not
+              a banner. */}
+          {!authedUsername && (
+            <Link
+              href="/login"
+              className="group -mx-3 -mb-3 flex items-center justify-center gap-2 border-t border-border bg-foreground/[0.03] px-3 py-2.5 text-center text-[10px] uppercase tracking-[0.32em] text-foreground/70 hover:bg-foreground/[0.06] hover:text-foreground transition-colors md:-mx-4 md:-mb-4 md:px-4"
+            >
+              Hazte parte de la comunidad
+              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          )}
         </div>
       </div>
 
@@ -429,6 +443,7 @@ export function AtlasClient({ initialTrips, topTravelers, authedUsername }: Prop
           name={selectedCountryName ?? ""}
           flag={countryFlag(selectedCountry)}
           travelers={travelersInCountry}
+          showInvite={!authedUsername}
           onClose={() => setSelectedCountry(null)}
         />
       )}
@@ -530,6 +545,7 @@ function CountryPanel({
   name,
   flag,
   travelers,
+  showInvite,
   onClose,
 }: {
   name: string;
@@ -542,6 +558,7 @@ function CountryPanel({
     trips: number;
     km: number;
   }>;
+  showInvite: boolean;
   onClose: () => void;
 }) {
   return (
@@ -581,7 +598,7 @@ function CountryPanel({
           Aún nadie ha registrado un viaje acá. Sé el primero.
         </p>
       ) : (
-        <ul className="flex-1 overflow-y-auto">
+        <ul className="flex-1 overflow-y-auto pb-1">
           {travelers.map((t, idx) => {
             const initials = initialsFrom(t.displayName ?? t.username ?? "");
             return (
@@ -620,6 +637,16 @@ function CountryPanel({
             );
           })}
         </ul>
+      )}
+
+      {showInvite && (
+        <Link
+          href="/login"
+          className="group flex items-center justify-center gap-2 border-t border-border bg-foreground/[0.03] px-4 py-3 text-center text-[10px] uppercase tracking-[0.32em] text-foreground/75 hover:bg-foreground/[0.06] hover:text-foreground transition-colors"
+        >
+          Hazte parte de la comunidad
+          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+        </Link>
       )}
     </div>
   );
