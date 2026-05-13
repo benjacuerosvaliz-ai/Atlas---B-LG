@@ -77,14 +77,28 @@ export default async function DashboardPage() {
     <div className="relative flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-between px-6 py-5 md:px-10 md:py-7">
         <BolgWordmark href="/" />
-        <form action={signOut}>
-          <button
-            type="submit"
-            className="text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
+        <nav className="flex items-center gap-5">
+          <Link
+            href="/atlas"
+            className="hidden text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors sm:inline"
           >
-            Cerrar sesión
-          </button>
-        </form>
+            Atlas
+          </Link>
+          <Link
+            href="/explorar"
+            className="hidden text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors sm:inline"
+          >
+            Comunidad
+          </Link>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
+            >
+              Cerrar sesión
+            </button>
+          </form>
+        </nav>
       </header>
 
       <main className="flex flex-1 flex-col gap-12 px-6 pb-24 pt-8 md:px-10">
