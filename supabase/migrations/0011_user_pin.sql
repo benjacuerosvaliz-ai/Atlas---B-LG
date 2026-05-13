@@ -24,7 +24,7 @@ create or replace function public.set_my_pin(p_pin text)
 returns void
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 begin
   if auth.uid() is null then
@@ -67,7 +67,7 @@ create or replace function public.verify_pin_for_username(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_user record;
