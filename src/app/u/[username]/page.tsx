@@ -14,6 +14,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Globe, type GlobePoint } from "@/components/globe/Globe";
+import { InstagramLink } from "@/components/instagram-link";
 import {
   Tabs,
   TabsContent,
@@ -295,14 +296,7 @@ export default async function UserProfilePage({ params }: Props) {
                 {levelInfo?.title ?? ""}
               </p>
               {profile.instagram_handle && (
-                <a
-                  href={`https://instagram.com/${profile.instagram_handle}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="self-start text-[10px] uppercase tracking-[0.28em] text-foreground/55 hover:text-foreground transition-colors"
-                >
-                  IG · @{profile.instagram_handle} ↗
-                </a>
+                <InstagramLink handle={profile.instagram_handle as string} />
               )}
               {profile.bio && (
                 <p className="mt-2 max-w-xl text-base leading-relaxed text-foreground/75">

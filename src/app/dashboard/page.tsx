@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
-import { ExternalLink, PencilLine, User } from "lucide-react";
+import { PencilLine, User } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BolgWordmark } from "@/components/bolg-wordmark";
+import { InstagramLink } from "@/components/instagram-link";
 import { TripCard } from "@/components/trip-card";
 import { isProvisionalUsername } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/server";
@@ -150,15 +151,7 @@ export default async function DashboardPage() {
               Editar perfil
             </Link>
             {profile?.instagram_handle && (
-              <a
-                href={`https://instagram.com/${profile.instagram_handle}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
-              >
-                IG · @{profile.instagram_handle}
-                <ExternalLink className="h-3 w-3" aria-hidden />
-              </a>
+              <InstagramLink handle={profile.instagram_handle} />
             )}
           </div>
         </section>
