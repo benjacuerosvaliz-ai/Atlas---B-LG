@@ -7,40 +7,30 @@ type Props = {
   href?: string | null;
   /** Extra Tailwind classes on the outer wrapper. */
   className?: string;
-  /** Show the "Atlas" subtitle next to the logo. Default true. */
-  showAtlas?: boolean;
 };
 
 /**
- * Official BØLG brand wordmark + "Atlas" subtitle, used in every page
- * header. Uses the real `/public/bolg-wordmark.png` (white-on-transparent,
- * 883×516) so the brand identity is consistent everywhere instead of the
- * Inter Tight typographic placeholder we shipped early on.
+ * Official BØLG brand wordmark, used in every page header. Uses
+ * `/public/bolg-wordmark.png` (white-on-transparent, 883×516) so the
+ * brand identity is consistent everywhere.
+ *
+ * The "Atlas" subtitle was removed — the product context is already
+ * communicated by the URL and the surrounding UI; doubling it next to
+ * the logo just added noise.
  */
-export function BolgWordmark({
-  href = "/",
-  className,
-  showAtlas = true,
-}: Props) {
+export function BolgWordmark({ href = "/", className }: Props) {
   const inner = (
-    <>
-      <Image
-        src="/bolg-wordmark.png"
-        alt="BØLG"
-        width={883}
-        height={516}
-        priority
-        className="h-9 w-auto md:h-10"
-      />
-      {showAtlas && (
-        <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/55">
-          Atlas
-        </span>
-      )}
-    </>
+    <Image
+      src="/bolg-wordmark.png"
+      alt="BØLG"
+      width={883}
+      height={516}
+      priority
+      className="h-9 w-auto md:h-10"
+    />
   );
 
-  const wrapperCls = cn("flex items-center gap-3", className);
+  const wrapperCls = cn("flex items-center", className);
 
   if (!href) {
     return <div className={wrapperCls}>{inner}</div>;
