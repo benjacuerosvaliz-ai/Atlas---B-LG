@@ -110,6 +110,12 @@ export function AtlasClient(props: Props) {
             <TopTravelersChip travelers={topTravelers} />
           )}
           <Link
+            href="/ranking"
+            className="hidden text-[10px] uppercase tracking-[0.28em] text-foreground/55 transition-colors hover:text-foreground sm:inline"
+          >
+            Ranking →
+          </Link>
+          <Link
             href="/sobre"
             className="hidden text-[10px] uppercase tracking-[0.28em] text-foreground/55 transition-colors hover:text-foreground sm:inline"
           >
