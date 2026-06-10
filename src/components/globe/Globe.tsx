@@ -1,4 +1,8 @@
 "use client";
+/* eslint-disable react-hooks/immutability -- Three.js textures se configuran
+ * imperativamente tras cargar (texture.colorSpace, texture.anisotropy). Es
+ * el patrón canónico de react-three-fiber; el rule de inmutabilidad no
+ * entiende que estos objetos no son React state. */
 
 import { Canvas, useFrame, useLoader, type ThreeEvent } from "@react-three/fiber";
 import { OrbitControls, Stars } from "@react-three/drei";

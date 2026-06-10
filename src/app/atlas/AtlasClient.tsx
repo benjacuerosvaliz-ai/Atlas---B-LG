@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { BolgWordmark } from "@/components/bolg-wordmark";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CONTINENT_NAMES, type ContinentCode } from "@/lib/geo";
+import { CONTINENT_NAMES, COUNTRY_TO_CONTINENT, type ContinentCode } from "@/lib/geo";
 import { cn } from "@/lib/utils";
 import type {
   CountryStatus,
@@ -277,8 +277,6 @@ export function AtlasClient(props: Props) {
 }
 
 function getContinent(countryCode: string): string {
-  // Import lazily to avoid client bundle bloat.
-  const { COUNTRY_TO_CONTINENT } = require("@/lib/geo") as typeof import("@/lib/geo");
   const c = COUNTRY_TO_CONTINENT[countryCode] as ContinentCode | undefined;
   return c ? CONTINENT_NAMES[c] : "";
 }

@@ -3,7 +3,7 @@
 import { ArrowRight, Check, ImageOff, Loader2 } from "lucide-react";
 import { useState, useTransition } from "react";
 import { CityPicker } from "@/components/city-picker";
-import { uploadToCloudinary, type UploadedAsset } from "@/lib/cloudinary-upload";
+import { uploadToCloudinary } from "@/lib/cloudinary-upload";
 import { cn } from "@/lib/utils";
 import { createTrip } from "./actions";
 import {
