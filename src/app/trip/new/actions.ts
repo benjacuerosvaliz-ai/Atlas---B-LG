@@ -2,11 +2,20 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { continentOf, haversineKm } from "@/lib/geo";
 import { createClient } from "@/lib/supabase/server";
+import type { City } from "@/lib/mapbox";
 import type { TripFormData } from "./types";
 
 type CreateTripResult = { error: string } | undefined;
 
+/**
+ * Crea un viaje v2:
+ * 1. Upsert ciudades origen + destino en public.cities (dedupe por mapbox_id).
+ * 2. Inserta trip con fecha YYYY-MM-01, distancia auto-haversine.
+ * 3. Inserta 2 city_visits con bolg_visible = (≥1 producto reclamado).
+ * 4. Inserta trip_claimed_models + upserts user_claimed_models.
+ */
 export async function createTrip(data: TripFormData): Promise<CreateTripResult> {
   const supabase = await createClient();
   const {
@@ -14,57 +23,70 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "Tu sesión expiró. Vuelve a entrar." };
+  if (!data.originCity) return { error: "Falta la ciudad de origen." };
+  if (!data.destinationCity) return { error: "Falta la ciudad de destino." };
+  if (!data.month || data.month < 1 || data.month > 12) {
+    return { error: "Falta el mes." };
+  }
+  if (!data.year) return { error: "Falta el año." };
 
-  // Server-side re-validation. Never trust the client wizard alone.
-  if (!data.startPlace) return { error: "Falta el lugar de inicio." };
-  if (!data.startAt) return { error: "Falta la fecha de inicio." };
-  if (!data.activityType) return { error: "Elige un tipo de actividad." };
-  if (typeof data.distanceKm !== "number" || data.distanceKm < 0) {
-    return { error: "Distancia inválida." };
-  }
-  if (data.endAt && data.startAt && data.endAt < data.startAt) {
-    return { error: "La fecha de fin no puede ser anterior a la de inicio." };
-  }
-  if (data.claimedModelIds.length > 0 && data.photos.length === 0) {
-    return {
-      error:
-        "Para asociar productos necesitamos al menos 1 foto del viaje como evidencia.",
-    };
-  }
+  // Date: usamos el día 1 del mes seleccionado para mantener compat con
+  // trips.start_at que es DATE NOT NULL.
+  const startAt = `${data.year}-${String(data.month).padStart(2, "0")}-01`;
+
+  // Distancia auto-calculada (haversine) entre las 2 ciudades.
+  const distanceKm = haversineKm(
+    data.originCity.latitude,
+    data.originCity.longitude,
+    data.destinationCity.latitude,
+    data.destinationCity.longitude,
+  );
+
+  const bolgVisible = data.claimedModelIds.length > 0;
+
+  // --- Paso 1: upsert cities ---
+  // Hacemos una sola query con ON CONFLICT (mapbox_id) DO NOTHING via
+  // upsert() + select para recuperar el id final.
+  const originCityRow = await ensureCity(supabase, data.originCity);
+  if ("error" in originCityRow) return originCityRow;
+  const destCityRow = await ensureCity(supabase, data.destinationCity);
+  if ("error" in destCityRow) return destCityRow;
 
   const countryCodes = Array.from(
     new Set(
-      [data.startPlace.countryCode, data.endPlace?.countryCode].filter(
-        (c): c is string => Boolean(c),
+      [data.originCity.countryCode, data.destinationCity.countryCode].filter(
+        Boolean,
       ),
     ),
   );
 
+  // --- Paso 2: insert trip ---
   const { data: inserted, error: insertErr } = await supabase
     .from("trips")
     .insert({
       user_id: user.id,
-      title: data.title ?? null,
-      description: data.description ?? null,
-      cover_photo_url: data.photos[0]?.url ?? null,
-      start_at: data.startAt,
-      end_at: data.endAt ?? null,
-      distance_km: data.distanceKm,
-      elevation_gain_m: data.elevationGainM ?? null,
-      start_lat: data.startPlace.latitude,
-      start_lng: data.startPlace.longitude,
-      end_lat: data.endPlace?.latitude ?? null,
-      end_lng: data.endPlace?.longitude ?? null,
-      start_place_name: data.startPlace.placeFormatted,
-      end_place_name: data.endPlace?.placeFormatted ?? null,
-      start_short_name: data.startPlace.name,
-      end_short_name: data.endPlace?.name ?? null,
+      title: null,
+      description: null,
+      cover_photo_url: data.photo?.url ?? null,
+      start_at: startAt,
+      end_at: null,
+      distance_km: Math.round(distanceKm * 10) / 10,
+      elevation_gain_m: null,
+      start_lat: data.originCity.latitude,
+      start_lng: data.originCity.longitude,
+      end_lat: data.destinationCity.latitude,
+      end_lng: data.destinationCity.longitude,
+      start_place_name: data.originCity.placeFormatted,
+      end_place_name: data.destinationCity.placeFormatted,
+      start_short_name: data.originCity.name,
+      end_short_name: data.destinationCity.name,
       country_codes: countryCodes.length > 0 ? countryCodes : null,
-      activity_type: data.activityType,
+      activity_type: "drive",
       visibility: "public",
-      counts_for_bolg: data.claimedModelIds.length > 0,
+      counts_for_bolg: bolgVisible,
       is_validated: true,
       validation_method: "manual",
+      migrated_to_v2: true,
     })
     .select("id")
     .single();
@@ -73,22 +95,40 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     console.error("[createTrip] trip insert failed", insertErr);
     return { error: insertErr?.message ?? "No se pudo crear el viaje." };
   }
-
   const tripId = inserted.id as string;
 
-  if (data.photos.length > 0) {
-    const { error: photoErr } = await supabase.from("trip_photos").insert(
-      data.photos.map((p, i) => ({
-        trip_id: tripId,
-        url: p.url,
-        ordering: i,
-      })),
-    );
+  // --- Paso 3: city_visits ---
+  const visitedDate = startAt;
+  const { error: visitsErr } = await supabase.from("city_visits").insert([
+    {
+      user_id: user.id,
+      city_id: originCityRow.id,
+      trip_id: tripId,
+      bolg_visible: bolgVisible,
+      visited_at: visitedDate,
+    },
+    {
+      user_id: user.id,
+      city_id: destCityRow.id,
+      trip_id: tripId,
+      bolg_visible: bolgVisible,
+      visited_at: visitedDate,
+    },
+  ]);
+  if (visitsErr) console.error("[createTrip] city_visits insert", visitsErr);
+
+  // --- Paso 4: foto ---
+  if (data.photo) {
+    const { error: photoErr } = await supabase.from("trip_photos").insert({
+      trip_id: tripId,
+      url: data.photo.url,
+      ordering: 0,
+    });
     if (photoErr) console.error("[createTrip] trip_photos", photoErr);
   }
 
+  // --- Paso 5: productos reclamados ---
   if (data.claimedModelIds.length > 0) {
-    // Per-trip claims.
     const { error: tripClaimErr } = await supabase
       .from("trip_claimed_models")
       .insert(
@@ -100,8 +140,6 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     if (tripClaimErr)
       console.error("[createTrip] trip_claimed_models", tripClaimErr);
 
-    // Grow the user's durable collection (idempotent — primary key handles
-    // dedupe; conflicts are silently ignored).
     const { error: collectionErr } = await supabase
       .from("user_claimed_models")
       .upsert(
@@ -116,5 +154,61 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/");
   redirect(`/t/${tripId}`);
+}
+
+/**
+ * Upsert una ciudad en public.cities indexada por mapbox_id. Devuelve el
+ * id local de la ciudad. Si el continente de la ciudad no está en nuestro
+ * mapa estático (lib/geo) devolvemos error — significa que el countryCode
+ * no es ISO o no lo conocemos.
+ */
+async function ensureCity(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  city: City,
+): Promise<{ id: string } | { error: string }> {
+  // Caso feliz: la ciudad ya existe.
+  const { data: existing } = await supabase
+    .from("cities")
+    .select("id")
+    .eq("mapbox_id", city.mapboxId)
+    .maybeSingle();
+  if (existing?.id) return { id: existing.id as string };
+
+  const continent = continentOf(city.countryCode);
+  if (!continent) {
+    return {
+      error: `No reconocemos el país "${city.country}" (${city.countryCode}). Avísanos para agregarlo.`,
+    };
+  }
+
+  const { data: created, error } = await supabase
+    .from("cities")
+    .insert({
+      mapbox_id: city.mapboxId,
+      name: city.name,
+      country_code: city.countryCode,
+      continent_code: continent,
+      latitude: city.latitude,
+      longitude: city.longitude,
+    })
+    .select("id")
+    .single();
+
+  if (error || !created) {
+    // Carrera: dos usuarios insertan la misma ciudad al mismo tiempo. El
+    // segundo se gana el unique violation. Re-lookup.
+    if (error?.code === "23505") {
+      const { data: retry } = await supabase
+        .from("cities")
+        .select("id")
+        .eq("mapbox_id", city.mapboxId)
+        .single();
+      if (retry?.id) return { id: retry.id as string };
+    }
+    console.error("[ensureCity]", error);
+    return { error: "No pudimos registrar la ciudad. Reintenta." };
+  }
+  return { id: created.id as string };
 }

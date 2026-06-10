@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { BolgWordmark } from "@/components/bolg-wordmark";
 import { isProvisionalUsername } from "@/lib/onboarding";
 import { createClient } from "@/lib/supabase/server";
-import { TripWizard } from "./TripWizard";
+import { TripForm } from "./TripForm";
 import type { ProductModelLite } from "./types";
 
 export const metadata: Metadata = {
@@ -74,7 +74,7 @@ export default async function NewTripPage() {
       </header>
 
       <main className="flex flex-1 justify-center px-6 pb-24 pt-4 md:px-10">
-        <TripWizard catalog={catalog} userCity={userCity} />
+        <TripForm catalog={catalog} userCity={userCity} />
       </main>
     </div>
   );

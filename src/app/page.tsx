@@ -1,23 +1,14 @@
 import type { Metadata } from "next";
 import { AtlasClient } from "./atlas/AtlasClient";
-import { loadAtlasData } from "./atlas/loader";
+import { loadAtlasV2Data } from "./atlas/loader";
 
 export const metadata: Metadata = {
-  title: "BØLG Atlas — Las olas no se quedan quietas",
+  title: "BØLG Atlas — Conquista el mundo con tu BØLG",
   description:
-    "El mapa en vivo de la comunidad BØLG: todas las personas que han viajado con nuestros productos, los kilómetros que llevan y los países que han pisado.",
+    "El mapa de conquista de la comunidad BØLG. Cada ciudad tiene un conquistador. Cada continente, una historia. Sé tú el siguiente.",
 };
 
-// Landing = immersive globe. Marketing copy + onboarding explainer moved
-// to /sobre and reachable from a discreet "¿Primera vez?" link in the
-// globe header.
 export default async function Home() {
-  const { initialTrips, topTravelers, authedUsername } = await loadAtlasData();
-  return (
-    <AtlasClient
-      initialTrips={initialTrips}
-      topTravelers={topTravelers}
-      authedUsername={authedUsername}
-    />
-  );
+  const data = await loadAtlasV2Data();
+  return <AtlasClient {...data} />;
 }

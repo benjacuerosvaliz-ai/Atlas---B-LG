@@ -1,0 +1,166 @@
+"use client";
+
+import { memo, useMemo } from "react";
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  ZoomableGroup,
+} from "react-simple-maps";
+
+/**
+ * Mapa-mundi 2D para el Atlas v2. Cada país se pinta según el `status`
+ * de conquista que pase el caller:
+ *   - "complete" → tinte fuerte (foreground)
+ *   - "partial"  → tinte medio
+ *   - "none"     → tinte neutro
+ * Click sobre un país dispara `onCountryClick(alpha2 lowercase)`.
+ *
+ * El topojson se carga desde JSDelivr (~30KB) — react-simple-maps lo
+ * fetchea client-side la primera vez. Para offline o producción ultra
+ * seria, mover a /public/world-110m.json.
+ */
+
+const TOPOJSON_URL =
+  "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+
+export type CountryStatus = "complete" | "partial" | "none";
+
+export type WorldMapProps = {
+  /** countryCode (alpha-2 lowercase) → estado. Países no listados son "none". */
+  statusByCountry: Record<string, CountryStatus>;
+  /** Si está, ese país se dibuja con un anillo de selección. */
+  selectedCountry?: string | null;
+  onCountryClick?: (countryCode: string) => void;
+};
+
+// Mapa numérico ISO 3166-1 numeric (lo que trae world-atlas/countries-110m)
+// → alpha-2 lowercase. world-atlas usa el código numérico como `id` de
+// cada Geography. Lo mantenemos acá para evitar otra dependencia.
+const NUMERIC_TO_ALPHA2: Record<string, string> = {
+  "004": "af", "008": "al", "010": "aq", "012": "dz", "016": "as", "020": "ad",
+  "024": "ao", "028": "ag", "031": "az", "032": "ar", "036": "au", "040": "at",
+  "044": "bs", "048": "bh", "050": "bd", "051": "am", "052": "bb", "056": "be",
+  "060": "bm", "064": "bt", "068": "bo", "070": "ba", "072": "bw", "074": "bv",
+  "076": "br", "084": "bz", "086": "io", "090": "sb", "092": "vg", "096": "bn",
+  "100": "bg", "104": "mm", "108": "bi", "112": "by", "116": "kh", "120": "cm",
+  "124": "ca", "132": "cv", "136": "ky", "140": "cf", "144": "lk", "148": "td",
+  "152": "cl", "156": "cn", "158": "tw", "162": "cx", "166": "cc", "170": "co",
+  "174": "km", "175": "yt", "178": "cg", "180": "cd", "184": "ck", "188": "cr",
+  "191": "hr", "192": "cu", "196": "cy", "203": "cz", "204": "bj", "208": "dk",
+  "212": "dm", "214": "do", "218": "ec", "222": "sv", "226": "gq", "231": "et",
+  "232": "er", "233": "ee", "234": "fo", "238": "fk", "239": "gs", "242": "fj",
+  "246": "fi", "248": "ax", "250": "fr", "254": "gf", "258": "pf", "260": "tf",
+  "262": "dj", "266": "ga", "268": "ge", "270": "gm", "275": "ps", "276": "de",
+  "288": "gh", "292": "gi", "296": "ki", "300": "gr", "304": "gl", "308": "gd",
+  "312": "gp", "316": "gu", "320": "gt", "324": "gn", "328": "gy", "332": "ht",
+  "334": "hm", "336": "va", "340": "hn", "344": "hk", "348": "hu", "352": "is",
+  "356": "in", "360": "id", "364": "ir", "368": "iq", "372": "ie", "376": "il",
+  "380": "it", "384": "ci", "388": "jm", "392": "jp", "398": "kz", "400": "jo",
+  "404": "ke", "408": "kp", "410": "kr", "414": "kw", "417": "kg", "418": "la",
+  "422": "lb", "426": "ls", "428": "lv", "430": "lr", "434": "ly", "438": "li",
+  "440": "lt", "442": "lu", "446": "mo", "450": "mg", "454": "mw", "458": "my",
+  "462": "mv", "466": "ml", "470": "mt", "474": "mq", "478": "mr", "480": "mu",
+  "484": "mx", "492": "mc", "496": "mn", "498": "md", "499": "me", "500": "ms",
+  "504": "ma", "508": "mz", "512": "om", "516": "na", "520": "nr", "524": "np",
+  "528": "nl", "531": "cw", "533": "aw", "534": "sx", "535": "bq", "540": "nc",
+  "548": "vu", "554": "nz", "558": "ni", "562": "ne", "566": "ng", "570": "nu",
+  "574": "nf", "578": "no", "580": "mp", "583": "fm", "584": "mh", "585": "pw",
+  "586": "pk", "591": "pa", "598": "pg", "600": "py", "604": "pe", "608": "ph",
+  "612": "pn", "616": "pl", "620": "pt", "624": "gw", "626": "tl", "630": "pr",
+  "634": "qa", "638": "re", "642": "ro", "643": "ru", "646": "rw", "652": "bl",
+  "654": "sh", "659": "kn", "660": "ai", "662": "lc", "663": "mf", "666": "pm",
+  "670": "vc", "674": "sm", "678": "st", "682": "sa", "686": "sn", "688": "rs",
+  "690": "sc", "694": "sl", "702": "sg", "703": "sk", "704": "vn", "705": "si",
+  "706": "so", "710": "za", "716": "zw", "724": "es", "728": "ss", "729": "sd",
+  "732": "eh", "740": "sr", "744": "sj", "748": "sz", "752": "se", "756": "ch",
+  "760": "sy", "762": "tj", "764": "th", "768": "tg", "772": "tk", "776": "to",
+  "780": "tt", "784": "ae", "788": "tn", "792": "tr", "795": "tm", "796": "tc",
+  "798": "tv", "800": "ug", "804": "ua", "807": "mk", "818": "eg", "826": "gb",
+  "831": "gg", "832": "je", "833": "im", "834": "tz", "840": "us", "850": "vi",
+  "854": "bf", "858": "uy", "860": "uz", "862": "ve", "876": "wf", "882": "ws",
+  "887": "ye", "894": "zm",
+};
+
+const COLOR_FOR_STATUS: Record<CountryStatus, string> = {
+  // Paleta BØLG. "none" es el color de mapa por defecto (cream/mist) que
+  // matchea con la estética del Atlas. "complete" usa aurora para que pop
+  // contra el fondo oscuro de la página. "partial" es un tinte umber tibio.
+  complete: "#5bc0be", // aurora — pop, eye-catching
+  partial: "#d4a373", // umber — warm tan medio
+  none: "#dcd8d0", // mist — neutro
+};
+
+export const WorldMap = memo(function WorldMap({
+  statusByCountry,
+  selectedCountry,
+  onCountryClick,
+}: WorldMapProps) {
+  // Memoize so repeated renders don't reconstruct the lookup map.
+  const lookup = useMemo(() => statusByCountry, [statusByCountry]);
+
+  return (
+    <ComposableMap
+      projection="geoNaturalEarth1"
+      projectionConfig={{ scale: 165 }}
+      style={{ width: "100%", height: "100%" }}
+    >
+      <ZoomableGroup
+        center={[-30, -10]}
+        zoom={1.1}
+        maxZoom={6}
+        minZoom={0.8}
+      >
+        <Geographies geography={TOPOJSON_URL}>
+          {({ geographies }) =>
+            geographies.map((geo) => {
+              const numeric = String(geo.id);
+              const alpha2 =
+                NUMERIC_TO_ALPHA2[numeric] ??
+                NUMERIC_TO_ALPHA2[numeric.padStart(3, "0")] ??
+                null;
+              const status: CountryStatus = alpha2
+                ? lookup[alpha2] ?? "none"
+                : "none";
+              const isSelected = alpha2 && alpha2 === selectedCountry;
+              const isInteractive = alpha2 && status !== "none";
+              return (
+                <Geography
+                  key={geo.rsmKey}
+                  geography={geo}
+                  onClick={() => {
+                    if (alpha2 && onCountryClick) onCountryClick(alpha2);
+                  }}
+                  style={{
+                    default: {
+                      fill: COLOR_FOR_STATUS[status],
+                      stroke: "#f4f1ea",
+                      strokeWidth: isSelected ? 1.4 : 0.4,
+                      outline: "none",
+                      cursor: isInteractive ? "pointer" : "default",
+                    },
+                    hover: {
+                      fill: isInteractive
+                        ? "#5bc0be"
+                        : COLOR_FOR_STATUS[status],
+                      stroke: "#f4f1ea",
+                      strokeWidth: 0.6,
+                      outline: "none",
+                      cursor: isInteractive ? "pointer" : "default",
+                    },
+                    pressed: {
+                      fill: "#5bc0be",
+                      stroke: "#f4f1ea",
+                      strokeWidth: 0.6,
+                      outline: "none",
+                    },
+                  }}
+                />
+              );
+            })
+          }
+        </Geographies>
+      </ZoomableGroup>
+    </ComposableMap>
+  );
+});

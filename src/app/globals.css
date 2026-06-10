@@ -143,3 +143,99 @@
     @apply bg-background text-foreground antialiased;
   }
 }
+
+/* ---------------------------------------------------------------------- */
+/* driver.js — onboarding tour. Override la paleta para que matchee BØLG. */
+/* ---------------------------------------------------------------------- */
+.bolg-tour-popover.driver-popover {
+  background-color: var(--color-bone);
+  color: var(--color-ink);
+  border-radius: 0;
+  border: 1px solid rgba(10, 10, 10, 0.15);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5);
+  font-family: var(--font-sans);
+  max-width: 360px;
+}
+
+.bolg-tour-popover .driver-popover-title {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 1.25rem;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--color-ink);
+}
+
+.bolg-tour-popover .driver-popover-description {
+  color: rgba(10, 10, 10, 0.7);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  margin-top: 0.5rem;
+}
+
+.bolg-tour-popover .driver-popover-progress-text {
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: rgba(10, 10, 10, 0.45);
+}
+
+.bolg-tour-popover .driver-popover-footer {
+  border-top: 1px solid rgba(10, 10, 10, 0.1);
+  padding-top: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.bolg-tour-popover .driver-popover-navigation-btns {
+  gap: 0.5rem;
+}
+
+.bolg-tour-popover .driver-popover-prev-btn,
+.bolg-tour-popover .driver-popover-next-btn {
+  border-radius: 0;
+  font-family: var(--font-sans);
+  font-size: 0.625rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  font-weight: 500;
+  padding: 0.75rem 1.25rem;
+  border: 1px solid var(--color-ink);
+  transition: all 0.15s ease;
+  text-shadow: none;
+}
+
+.bolg-tour-popover .driver-popover-prev-btn {
+  background-color: transparent;
+  color: var(--color-ink);
+}
+
+.bolg-tour-popover .driver-popover-prev-btn:hover {
+  background-color: rgba(10, 10, 10, 0.05);
+}
+
+.bolg-tour-popover .driver-popover-next-btn {
+  background-color: var(--color-ink);
+  color: var(--color-bone);
+}
+
+.bolg-tour-popover .driver-popover-next-btn:hover {
+  background-color: rgba(10, 10, 10, 0.85);
+}
+
+.bolg-tour-popover .driver-popover-close-btn {
+  color: rgba(10, 10, 10, 0.4);
+  font-size: 1.5rem;
+  transition: color 0.15s ease;
+}
+
+.bolg-tour-popover .driver-popover-close-btn:hover {
+  color: var(--color-ink);
+}
+
+.bolg-tour-popover .driver-popover-arrow-side-left.driver-popover-arrow,
+.bolg-tour-popover .driver-popover-arrow-side-right.driver-popover-arrow,
+.bolg-tour-popover .driver-popover-arrow-side-top.driver-popover-arrow,
+.bolg-tour-popover .driver-popover-arrow-side-bottom.driver-popover-arrow {
+  border-color: var(--color-bone);
+}

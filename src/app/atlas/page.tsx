@@ -1,22 +1,14 @@
 import type { Metadata } from "next";
 import { AtlasClient } from "./AtlasClient";
-import { loadAtlasData } from "./loader";
+import { loadAtlasV2Data } from "./loader";
 
 export const metadata: Metadata = {
-  title: "Atlas — Las olas no se quedan quietas",
+  title: "Atlas — Conquista el mundo con tu BØLG",
   description:
-    "Todos los viajes públicos de la comunidad BØLG, en vivo, sobre el globo terráqueo.",
+    "Mapa de conquista de la comunidad BØLG en vivo.",
 };
 
-// /atlas keeps working as a stable URL even though the same content lives
-// at `/` now. Sharing the loader keeps the two routes in lockstep.
 export default async function AtlasPage() {
-  const { initialTrips, topTravelers, authedUsername } = await loadAtlasData();
-  return (
-    <AtlasClient
-      initialTrips={initialTrips}
-      topTravelers={topTravelers}
-      authedUsername={authedUsername}
-    />
-  );
+  const data = await loadAtlasV2Data();
+  return <AtlasClient {...data} />;
 }
