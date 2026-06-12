@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { continentOf } from "@/lib/geo";
 import type { City } from "@/lib/mapbox";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const ADMIN_EMAILS = new Set([
@@ -18,7 +19,7 @@ type MigrateInput = {
 
 type Result = { error: string } | undefined;
 
-export async function migrateTrip(input: MigrateInput): Promise<Result> {
+async function assertAdmin(): Promise<Result> {
   const supabase = await createClient();
   const {
     data: { user },
@@ -26,8 +27,18 @@ export async function migrateTrip(input: MigrateInput): Promise<Result> {
   if (!user || !ADMIN_EMAILS.has(user.email ?? "")) {
     return { error: "No autorizado." };
   }
+  return undefined;
+}
 
-  const { data: trip } = await supabase
+export async function migrateTrip(input: MigrateInput): Promise<Result> {
+  const gate = await assertAdmin();
+  if (gate) return gate;
+
+  // Service role: el admin escribe en nombre de otros usuarios y la RLS
+  // de city_visits exige auth.uid() = user_id. Bypass legítimo.
+  const admin = createAdminClient();
+
+  const { data: trip } = await admin
     .from("trips")
     .select("id, user_id, start_at, created_at, counts_for_bolg, migrated_to_v2")
     .eq("id", input.tripId)
@@ -36,9 +47,9 @@ export async function migrateTrip(input: MigrateInput): Promise<Result> {
   if (!trip) return { error: "Viaje no encontrado." };
   if (trip.migrated_to_v2) return { error: "Ya estaba migrado." };
 
-  const originRow = await ensureCity(supabase, input.originCity);
+  const originRow = await ensureCity(admin, input.originCity);
   if ("error" in originRow) return originRow;
-  const destRow = await ensureCity(supabase, input.destinationCity);
+  const destRow = await ensureCity(admin, input.destinationCity);
   if ("error" in destRow) return destRow;
 
   const bolg = Boolean(trip.counts_for_bolg);
@@ -46,7 +57,7 @@ export async function migrateTrip(input: MigrateInput): Promise<Result> {
     (trip.created_at as string | null) ?? new Date().toISOString();
   const visitedAt = (trip.start_at as string | null) ?? null;
 
-  const { error: visitsErr } = await supabase.from("city_visits").insert([
+  const { error: visitsErr } = await admin.from("city_visits").insert([
     {
       user_id: trip.user_id,
       city_id: originRow.id,
@@ -66,7 +77,7 @@ export async function migrateTrip(input: MigrateInput): Promise<Result> {
   ]);
   if (visitsErr) return { error: visitsErr.message };
 
-  const { error: flagErr } = await supabase
+  const { error: flagErr } = await admin
     .from("trips")
     .update({ migrated_to_v2: true })
     .eq("id", trip.id);
@@ -78,16 +89,12 @@ export async function migrateTrip(input: MigrateInput): Promise<Result> {
 }
 
 export async function skipTrip(tripId: string): Promise<Result> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user || !ADMIN_EMAILS.has(user.email ?? "")) {
-    return { error: "No autorizado." };
-  }
+  const gate = await assertAdmin();
+  if (gate) return gate;
+  const admin = createAdminClient();
   // Skip = solo marcamos migrated_to_v2 = true para sacarlo de la cola, sin
   // crear city_visits. El trip queda visible pero no cuenta para conquista.
-  const { error } = await supabase
+  const { error } = await admin
     .from("trips")
     .update({ migrated_to_v2: true })
     .eq("id", tripId);
@@ -97,7 +104,7 @@ export async function skipTrip(tripId: string): Promise<Result> {
 }
 
 async function ensureCity(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createAdminClient>,
   city: City,
 ): Promise<{ id: string } | { error: string }> {
   const { data: existing } = await supabase
