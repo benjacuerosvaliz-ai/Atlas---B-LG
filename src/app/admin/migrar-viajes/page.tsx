@@ -10,7 +10,10 @@ export const metadata: Metadata = {
 };
 
 // Lista admin-emails. Solo Benja entra acá.
-const ADMIN_EMAILS = new Set(["benja.bolgen@gmail.com"]);
+const ADMIN_EMAILS = new Set([
+  "benja.bolgen@gmail.com",
+  "benja.cuerosvaliz@gmail.com",
+]);
 
 export default async function MigrateTripsPage() {
   const supabase = await createClient();

@@ -5,7 +5,10 @@ import { continentOf } from "@/lib/geo";
 import type { City } from "@/lib/mapbox";
 import { createClient } from "@/lib/supabase/server";
 
-const ADMIN_EMAILS = new Set(["benja.bolgen@gmail.com"]);
+const ADMIN_EMAILS = new Set([
+  "benja.bolgen@gmail.com",
+  "benja.cuerosvaliz@gmail.com",
+]);
 
 type MigrateInput = {
   tripId: string;
