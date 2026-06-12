@@ -9,6 +9,7 @@
  *    city_visits).
  */
 
+import { COUNTRY_TO_CONTINENT } from "@/lib/geo";
 import { createClient } from "@/lib/supabase/server";
 
 const PROVISIONAL_USERNAME_RE = /^user_[a-f0-9]+$/;
@@ -31,10 +32,17 @@ export type TopTraveler = {
   totalKm: number;
 };
 
+export type Totals = {
+  cities: number;     // ciudades registradas en la comunidad (denominador dinámico)
+  countries: number;  // países que reconocemos en lib/geo
+  continents: number; // 7
+};
+
 export async function loadAtlasV2Data(): Promise<{
   authedUsername: string | null;
   globalKpis: Kpis;
   personalKpis: Kpis | null;
+  totals: Totals;
   statusByCountryGlobal: Record<string, CountryStatus>;
   statusByCountryPersonal: Record<string, CountryStatus> | null;
   topTravelers: TopTraveler[];
@@ -49,6 +57,7 @@ export async function loadAtlasV2Data(): Promise<{
     { data: tripsKmRows },
     { data: visitsGlobal },
     { data: globalCountryStatus },
+    { count: totalCities },
     { data: topRaw },
     personalUsername,
   ] = await Promise.all([
@@ -57,6 +66,7 @@ export async function loadAtlasV2Data(): Promise<{
       .from("city_visits")
       .select("city_id, cities(country_code, continent_code)"),
     supabase.from("country_status_global").select("country_code, status"),
+    supabase.from("cities").select("id", { count: "exact", head: true }),
     supabase
       .from("users")
       .select("id, username, display_name, avatar_url, total_km")
@@ -71,6 +81,12 @@ export async function loadAtlasV2Data(): Promise<{
           .then(({ data }) => (data?.username as string | null) ?? null)
       : Promise.resolve(null),
   ]);
+
+  const totals: Totals = {
+    cities: totalCities ?? 0,
+    countries: Object.keys(COUNTRY_TO_CONTINENT).length,
+    continents: 7,
+  };
 
   // Global KPIs
   const totalKmGlobal = Math.round(
@@ -177,6 +193,7 @@ export async function loadAtlasV2Data(): Promise<{
     authedUsername: personalUsername,
     globalKpis,
     personalKpis,
+    totals,
     statusByCountryGlobal,
     statusByCountryPersonal,
     topTravelers,

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ChevronRight, Plus, X } from "lucide-react";
+import { ArrowRight, Plus, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 import type {
   CountryStatus,
   Kpis,
+  Totals,
   TopTraveler,
 } from "./loader";
 
@@ -32,6 +33,7 @@ type Props = {
   authedUsername: string | null;
   globalKpis: Kpis;
   personalKpis: Kpis | null;
+  totals: Totals;
   statusByCountryGlobal: Record<string, CountryStatus>;
   statusByCountryPersonal: Record<string, CountryStatus> | null;
   topTravelers: TopTraveler[];
@@ -63,6 +65,7 @@ export function AtlasClient(props: Props) {
     authedUsername,
     globalKpis,
     personalKpis,
+    totals,
     statusByCountryGlobal,
     statusByCountryPersonal,
     topTravelers,
@@ -78,14 +81,11 @@ export function AtlasClient(props: Props) {
       ? statusByCountryPersonal ?? statusByCountryGlobal
       : statusByCountryGlobal;
 
-  // Lista de países visibles ordenada para el HUD inferior. Solo aparecen
-  // países con al menos partial — el "none" no se chip-ea.
   const countryChips = useMemo(() => {
     const out: Array<{ code: string; status: CountryStatus }> = [];
     for (const [code, status] of Object.entries(statusByCountry)) {
       if (status !== "none") out.push({ code, status });
     }
-    // Complete primero, partial después; alfabético dentro.
     out.sort((a, b) => {
       if (a.status === b.status) return a.code.localeCompare(b.code);
       return a.status === "complete" ? -1 : 1;
@@ -106,9 +106,6 @@ export function AtlasClient(props: Props) {
       >
         <BolgWordmark href="/" />
         <div className="flex items-center gap-3 md:gap-5">
-          {topTravelers.length > 0 && (
-            <TopTravelersChip travelers={topTravelers} />
-          )}
           <Link
             href="/ranking"
             className="hidden text-[10px] uppercase tracking-[0.28em] text-foreground/55 transition-colors hover:text-foreground sm:inline"
@@ -139,36 +136,22 @@ export function AtlasClient(props: Props) {
         </div>
       </header>
 
-      {/* Mode toggle + KPIs strip (top center, below header) */}
-      <div
-        className="pointer-events-none absolute inset-x-0 top-[72px] z-20 flex justify-center px-4 md:top-[84px]"
-        data-tour="kpis"
-      >
-        <div className="pointer-events-auto flex w-full max-w-3xl flex-col gap-3 border border-border bg-card/85 px-4 py-3 backdrop-blur-sm md:px-6 md:py-4">
-          {authedUsername && (
-            <div className="flex gap-2 border-b border-border pb-2">
-              <ModeButton
-                active={mode === "global"}
-                onClick={() => setMode("global")}
-              >
-                Global
-              </ModeButton>
-              <ModeButton
-                active={mode === "personal"}
-                onClick={() => setMode("personal")}
-              >
-                Personal
-              </ModeButton>
-            </div>
-          )}
-          <div className="grid grid-cols-4 gap-2 md:gap-4">
-            <Kpi value={kpis.totalKm} label="Km" />
-            <Kpi value={kpis.citiesVisited} label="Ciudades" />
-            <Kpi value={kpis.countriesRecorridos} label="Países" />
-            <Kpi value={kpis.continentsConocidos} label="Continentes" />
+      {/* Floating color legend — top-left of the map */}
+      <ColorLegend />
+
+      {/* Mode toggle (top center, just below header — solo si autenticado) */}
+      {authedUsername && (
+        <div className="pointer-events-none absolute inset-x-0 top-[68px] z-20 flex justify-center px-4 md:top-[80px]">
+          <div className="pointer-events-auto flex gap-1 border border-border bg-card/85 p-1 backdrop-blur-sm">
+            <ModeButton active={mode === "global"} onClick={() => setMode("global")}>
+              Global
+            </ModeButton>
+            <ModeButton active={mode === "personal"} onClick={() => setMode("personal")}>
+              Personal
+            </ModeButton>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Map */}
       <div className="absolute inset-0 z-0" data-tour="map">
@@ -179,64 +162,131 @@ export function AtlasClient(props: Props) {
         />
       </div>
 
-      {/* Country chips strip + community CTA — bottom */}
+      {/* Floating "Cargar viaje" CTA for authed users */}
+      {authedUsername && (
+        <Link
+          href="/trip/new"
+          className="absolute bottom-[260px] right-4 z-30 flex items-center gap-2 bg-foreground px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-background shadow-lg transition-colors hover:bg-foreground/80 md:bottom-[280px] md:right-8"
+          data-tour="upload"
+        >
+          <Plus className="h-3 w-3" />
+          Cargar viaje
+        </Link>
+      )}
+
+      {/* Bottom panel: KPIs → Top travelers → Country chips */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 px-4 pb-5 md:px-8 md:pb-6">
         <div
-          className="pointer-events-auto flex flex-col gap-3 border border-border bg-card/85 p-3 backdrop-blur-sm md:p-4"
+          className="pointer-events-auto flex flex-col divide-y divide-border border border-border bg-card/90 backdrop-blur-sm"
           data-tour="hud"
         >
-          {countryChips.length > 0 ? (
-            <div className="-mx-3 overflow-x-auto px-3 md:-mx-4 md:px-4">
-              <div className="flex min-w-min items-center gap-2">
-                {countryChips.map((c) => {
-                  const active = c.code === selectedCountry;
-                  return (
-                    <button
-                      key={c.code}
-                      type="button"
-                      onClick={() =>
-                        setSelectedCountry((curr) =>
-                          curr === c.code ? null : c.code,
-                        )
-                      }
-                      className={cn(
-                        "flex shrink-0 items-center gap-1.5 border px-2.5 py-1.5 text-[10px] uppercase tracking-[0.24em] transition-colors",
-                        active
-                          ? "border-foreground bg-foreground text-background"
-                          : c.status === "complete"
-                            ? "border-foreground/70 text-foreground"
-                            : "border-border text-foreground/65 hover:border-foreground/70 hover:text-foreground",
+          {/* KPIs with X/Y fractions */}
+          <div className="grid grid-cols-4 gap-2 px-4 py-3 md:gap-4 md:px-5 md:py-4" data-tour="kpis">
+            <Kpi value={kpis.totalKm} label="Km" />
+            <Kpi value={kpis.citiesVisited} total={totals.cities} label="Ciudades" />
+            <Kpi value={kpis.countriesRecorridos} total={totals.countries} label="Países" />
+            <Kpi value={kpis.continentsConocidos} total={totals.continents} label="Continentes" />
+          </div>
+
+          {/* Top travelers strip */}
+          {topTravelers.length > 0 && (
+            <div className="flex items-center gap-3 px-4 py-3 md:px-5" data-tour="top">
+              <span className="shrink-0 text-[10px] uppercase tracking-[0.28em] text-foreground/50">
+                Top
+              </span>
+              <div className="-mx-2 flex flex-1 items-center gap-1 overflow-x-auto px-2">
+                {topTravelers.map((t, idx) => (
+                  <Link
+                    key={t.id}
+                    href={`/u/${t.username}`}
+                    className="group flex shrink-0 items-center gap-2 border border-transparent px-2 py-1.5 transition-colors hover:border-border hover:bg-foreground/[0.04]"
+                  >
+                    <span className="font-mono text-[10px] tabular-nums text-foreground/45">
+                      #{idx + 1}
+                    </span>
+                    <Avatar className="h-7 w-7 bg-fog">
+                      {t.avatarUrl && (
+                        <AvatarImage src={t.avatarUrl} alt={t.displayName ?? t.username} />
                       )}
-                    >
-                      <span className="text-sm leading-none">
-                        {countryFlag(c.code)}
+                      <AvatarFallback className="bg-fog text-[9px] font-black text-foreground/75">
+                        {initialsFrom(t.displayName ?? t.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex flex-col leading-tight">
+                      <span className="text-[11px]">
+                        {t.displayName ?? `@${t.username}`}
                       </span>
-                      <span>{countryDisplayName(c.code)}</span>
-                      {c.status === "complete" && (
-                        <span
-                          className={cn(
-                            "font-mono text-[9px]",
-                            active ? "text-background/70" : "text-aurora",
-                          )}
-                        >
-                          ✓
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
+                      <span className="font-mono text-[9px] tabular-nums text-foreground/55">
+                        {Math.round(t.totalKm).toLocaleString("es-CL")} km
+                      </span>
+                    </div>
+                  </Link>
+                ))}
               </div>
+              <Link
+                href="/ranking"
+                className="shrink-0 text-[10px] uppercase tracking-[0.28em] text-foreground/55 transition-colors hover:text-foreground"
+              >
+                Ver todos →
+              </Link>
             </div>
-          ) : (
-            <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/50">
-              Sin viajes registrados todavía. Sé el primer conquistador.
-            </p>
           )}
+
+          {/* Country chips */}
+          <div className="px-4 py-3 md:px-5">
+            {countryChips.length > 0 ? (
+              <div className="-mx-2 overflow-x-auto px-2">
+                <div className="flex min-w-min items-center gap-2">
+                  {countryChips.map((c) => {
+                    const active = c.code === selectedCountry;
+                    return (
+                      <button
+                        key={c.code}
+                        type="button"
+                        onClick={() =>
+                          setSelectedCountry((curr) =>
+                            curr === c.code ? null : c.code,
+                          )
+                        }
+                        className={cn(
+                          "flex shrink-0 items-center gap-1.5 border px-2.5 py-1.5 text-[10px] uppercase tracking-[0.24em] transition-colors",
+                          active
+                            ? "border-foreground bg-foreground text-background"
+                            : c.status === "complete"
+                              ? "border-foreground/70 text-foreground"
+                              : "border-border text-foreground/65 hover:border-foreground/70 hover:text-foreground",
+                        )}
+                      >
+                        <span className="text-sm leading-none">
+                          {countryFlag(c.code)}
+                        </span>
+                        <span>{countryDisplayName(c.code)}</span>
+                        {c.status === "complete" && (
+                          <span
+                            className={cn(
+                              "font-mono text-[9px]",
+                              active ? "text-background/70" : "text-aurora",
+                            )}
+                          >
+                            ✓
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/50">
+                Sin viajes registrados todavía. Sé el primer conquistador.
+              </p>
+            )}
+          </div>
 
           {!authedUsername && (
             <Link
               href="/login"
-              className="group -mx-3 -mb-3 flex items-center justify-center gap-2 border-t border-border bg-foreground/[0.03] px-3 py-2.5 text-center text-[10px] uppercase tracking-[0.32em] text-foreground/70 transition-colors hover:bg-foreground/[0.06] hover:text-foreground md:-mx-4 md:-mb-4 md:px-4"
+              className="group flex items-center justify-center gap-2 bg-foreground/[0.03] px-3 py-2.5 text-center text-[10px] uppercase tracking-[0.32em] text-foreground/70 transition-colors hover:bg-foreground/[0.06] hover:text-foreground md:px-4"
               data-tour="join"
             >
               Hazte parte de la comunidad
@@ -246,19 +296,7 @@ export function AtlasClient(props: Props) {
         </div>
       </div>
 
-      {/* Floating "Cargar viaje" CTA for authed users */}
-      {authedUsername && (
-        <Link
-          href="/trip/new"
-          className="absolute bottom-[120px] right-4 z-20 flex items-center gap-2 bg-foreground px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-background shadow-lg transition-colors hover:bg-foreground/80 md:bottom-[140px] md:right-8"
-          data-tour="upload"
-        >
-          <Plus className="h-3 w-3" />
-          Cargar viaje
-        </Link>
-      )}
-
-      {/* Onboarding tour (anónimos primera vez + botón "?" siempre disponible) */}
+      {/* Onboarding tour */}
       <OnboardingTour authedUsername={authedUsername} />
 
       {/* Country drill-down panel */}
@@ -279,6 +317,44 @@ export function AtlasClient(props: Props) {
 function getContinent(countryCode: string): string {
   const c = COUNTRY_TO_CONTINENT[countryCode] as ContinentCode | undefined;
   return c ? CONTINENT_NAMES[c] : "";
+}
+
+function ColorLegend() {
+  const [open, setOpen] = useState(true);
+  return (
+    <div className="pointer-events-none absolute left-4 top-[120px] z-20 md:left-8 md:top-[140px]">
+      <div className="pointer-events-auto flex flex-col gap-1.5 border border-border bg-card/85 p-2.5 backdrop-blur-sm">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="flex items-center justify-between gap-2 text-[9px] uppercase tracking-[0.32em] text-foreground/55 transition-colors hover:text-foreground"
+        >
+          <span>Colores</span>
+          <span className="font-mono text-[9px]">{open ? "−" : "+"}</span>
+        </button>
+        {open && (
+          <ul className="flex flex-col gap-1 pt-1">
+            <LegendRow color="#5bc0be" label="Conquista completa" />
+            <LegendRow color="#d4a373" label="Conquista parcial" />
+            <LegendRow color="#dcd8d0" label="Sin conquistar" />
+          </ul>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LegendRow({ color, label }: { color: string; label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <span
+        className="h-3 w-3 border border-foreground/15"
+        style={{ backgroundColor: color }}
+        aria-hidden
+      />
+      <span className="font-mono text-[10px] text-foreground/65">{label}</span>
+    </li>
+  );
 }
 
 function ModeButton({
@@ -306,86 +382,31 @@ function ModeButton({
   );
 }
 
-function Kpi({ value, label }: { value: number; label: string }) {
+function Kpi({
+  value,
+  total,
+  label,
+}: {
+  value: number;
+  total?: number;
+  label: string;
+}) {
   return (
     <div className="flex flex-col">
       <span className="font-display text-lg font-black leading-none tabular-nums tracking-tight md:text-2xl">
         {value.toLocaleString("es-CL")}
+        {typeof total === "number" && (
+          <span className="text-foreground/40">
+            <span className="px-0.5 text-base font-normal md:text-lg">/</span>
+            <span className="text-base font-normal md:text-lg">
+              {total.toLocaleString("es-CL")}
+            </span>
+          </span>
+        )}
       </span>
       <span className="mt-0.5 text-[9px] uppercase tracking-[0.28em] text-foreground/50 md:text-[10px]">
         {label}
       </span>
-    </div>
-  );
-}
-
-function TopTravelersChip({ travelers }: { travelers: TopTraveler[] }) {
-  const [expanded, setExpanded] = useState(false);
-  return (
-    <div
-      className="relative"
-      onMouseEnter={() => setExpanded(true)}
-      onMouseLeave={() => setExpanded(false)}
-      data-tour="top"
-    >
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        aria-label="Ver top viajeros"
-        className="flex items-center gap-1.5 border border-border bg-card/85 px-2 py-1.5 backdrop-blur-sm transition-colors hover:border-foreground/70"
-      >
-        <span className="text-[9px] uppercase tracking-[0.28em] text-foreground/55">
-          Top
-        </span>
-        <div className="flex -space-x-2">
-          {travelers.slice(0, 3).map((t) => (
-            <Avatar key={t.id} className="h-6 w-6 border border-card bg-fog">
-              {t.avatarUrl && (
-                <AvatarImage src={t.avatarUrl} alt={t.displayName ?? t.username} />
-              )}
-              <AvatarFallback className="bg-fog text-[9px] font-black text-foreground/75">
-                {initialsFrom(t.displayName ?? t.username)}
-              </AvatarFallback>
-            </Avatar>
-          ))}
-        </div>
-      </button>
-      {expanded && (
-        <ul className="absolute right-0 top-full z-40 mt-2 flex w-64 flex-col border border-border bg-card/95 backdrop-blur-sm">
-          {travelers.map((t, idx) => (
-            <li key={t.id}>
-              <Link
-                href={`/u/${t.username}`}
-                className="group flex items-center gap-3 border-b border-border/60 px-3 py-2.5 transition-colors last:border-b-0 hover:bg-foreground/[0.04]"
-              >
-                <span className="w-5 shrink-0 font-mono text-[10px] tabular-nums text-foreground/45">
-                  #{idx + 1}
-                </span>
-                <Avatar className="h-9 w-9 shrink-0 bg-fog">
-                  {t.avatarUrl && (
-                    <AvatarImage
-                      src={t.avatarUrl}
-                      alt={t.displayName ?? t.username}
-                    />
-                  )}
-                  <AvatarFallback className="bg-fog text-[10px] font-black text-foreground/75">
-                    {initialsFrom(t.displayName ?? t.username)}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <span className="truncate text-sm">
-                    {t.displayName ?? `@${t.username}`}
-                  </span>
-                  <span className="truncate font-mono text-[10px] tabular-nums text-foreground/55">
-                    {Math.round(t.totalKm).toLocaleString("es-CL")} km
-                  </span>
-                </div>
-                <ChevronRight className="h-3 w-3 shrink-0 text-foreground/35 transition-colors group-hover:text-foreground" />
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
     </div>
   );
 }
@@ -414,8 +435,8 @@ function CountryPanel({
     <div
       className={cn(
         "absolute z-40 flex flex-col gap-3 border border-border bg-card/95 backdrop-blur-md",
-        "md:right-6 md:top-[180px] md:bottom-[160px] md:w-[360px] md:max-w-[40vw]",
-        "inset-x-3 bottom-[180px] top-[180px] md:inset-auto",
+        "md:right-6 md:top-[180px] md:bottom-[280px] md:w-[360px] md:max-w-[40vw]",
+        "inset-x-3 top-[180px] bottom-[300px] md:inset-auto",
       )}
     >
       <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
@@ -485,3 +506,4 @@ function initialsFrom(name: string): string {
       .slice(0, 2) || "·"
   );
 }
+
