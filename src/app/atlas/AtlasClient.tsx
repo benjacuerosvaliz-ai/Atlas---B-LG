@@ -4,12 +4,15 @@ import { ArrowRight, Plus, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ActivityTicker } from "@/components/activity-ticker";
 import { BolgWordmark } from "@/components/bolg-wordmark";
+import { MonthlyPrizeChip } from "@/components/monthly-prize-chip";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CONTINENT_NAMES, COUNTRY_TO_CONTINENT, type ContinentCode } from "@/lib/geo";
 import { cn } from "@/lib/utils";
 import type {
+  ActivityEvent,
   CountryStatus,
   Kpis,
   Totals,
@@ -37,6 +40,7 @@ type Props = {
   statusByCountryGlobal: Record<string, CountryStatus>;
   statusByCountryPersonal: Record<string, CountryStatus> | null;
   topTravelers: TopTraveler[];
+  recentActivity: ActivityEvent[];
 };
 
 type Mode = "global" | "personal";
@@ -69,7 +73,9 @@ export function AtlasClient(props: Props) {
     statusByCountryGlobal,
     statusByCountryPersonal,
     topTravelers,
+    recentActivity,
   } = props;
+  const [heroDismissed, setHeroDismissed] = useState(false);
   const [mode, setMode] = useState<Mode>("global");
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
 
@@ -136,22 +142,16 @@ export function AtlasClient(props: Props) {
         </div>
       </header>
 
+      {/* Live activity ticker + monthly prize ribbon — just below header */}
+      <div className="pointer-events-none absolute inset-x-0 top-[60px] z-[25] flex items-center justify-between gap-2 px-4 md:top-[72px] md:px-8">
+        <ActivityTicker events={recentActivity} />
+        <div className="pointer-events-auto">
+          <MonthlyPrizeChip />
+        </div>
+      </div>
+
       {/* Floating color legend — top-left of the map */}
       <ColorLegend />
-
-      {/* Mode toggle (top center, just below header — solo si autenticado) */}
-      {authedUsername && (
-        <div className="pointer-events-none absolute inset-x-0 top-[68px] z-20 flex justify-center px-4 md:top-[80px]">
-          <div className="pointer-events-auto flex gap-1 border border-border bg-card/85 p-1 backdrop-blur-sm">
-            <ModeButton active={mode === "global"} onClick={() => setMode("global")}>
-              Global
-            </ModeButton>
-            <ModeButton active={mode === "personal"} onClick={() => setMode("personal")}>
-              Personal
-            </ModeButton>
-          </div>
-        </div>
-      )}
 
       {/* Map */}
       <div className="absolute inset-0 z-0" data-tour="map">
@@ -174,12 +174,29 @@ export function AtlasClient(props: Props) {
         </Link>
       )}
 
-      {/* Bottom panel: KPIs → Top travelers → Country chips */}
+      {/* Bottom panel: Mode toggle → KPIs → Top travelers → Country chips */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 px-4 pb-5 md:px-8 md:pb-6">
         <div
           className="pointer-events-auto flex flex-col divide-y divide-border border border-border bg-card/90 backdrop-blur-sm"
           data-tour="hud"
         >
+          {/* Mode toggle (solo si autenticado) */}
+          {authedUsername && (
+            <div className="flex items-center justify-between gap-3 px-4 py-2 md:px-5">
+              <span className="text-[9px] uppercase tracking-[0.32em] text-foreground/45">
+                Viendo
+              </span>
+              <div className="flex gap-1">
+                <ModeButton active={mode === "global"} onClick={() => setMode("global")}>
+                  Global
+                </ModeButton>
+                <ModeButton active={mode === "personal"} onClick={() => setMode("personal")}>
+                  Personal
+                </ModeButton>
+              </div>
+            </div>
+          )}
+
           {/* KPIs with X/Y fractions */}
           <div className="grid grid-cols-4 gap-2 px-4 py-3 md:gap-4 md:px-5 md:py-4" data-tour="kpis">
             <Kpi value={kpis.totalKm} label="Km" />
@@ -295,6 +312,52 @@ export function AtlasClient(props: Props) {
           )}
         </div>
       </div>
+
+      {/* Anonymous hero hook — manifesto card centered on map */}
+      {!authedUsername && !heroDismissed && (
+        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
+          <div className="pointer-events-auto flex w-full max-w-md flex-col gap-4 border-2 border-foreground bg-card/95 p-6 backdrop-blur-md md:p-8">
+            <div className="flex items-start justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-[0.36em] text-aurora">
+                Atlas BØLG
+              </span>
+              <button
+                type="button"
+                onClick={() => setHeroDismissed(true)}
+                aria-label="Cerrar"
+                className="text-foreground/40 transition-colors hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <h2 className="font-display text-3xl font-black leading-[1.02] tracking-tight md:text-4xl">
+              Conquista el mundo con tu BØLG.
+            </h2>
+            <p className="text-sm leading-relaxed text-foreground/70">
+              Cada ciudad tiene un conquistador. El primero que llega con un
+              BØLG queda con su nombre clavado hasta que lo destronen. Cada mes
+              el #1 del ranking se lleva un parche edición limitada, $100.000
+              CLP y la portada de RRSS.
+            </p>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Link
+                href="/login"
+                className="group flex flex-1 items-center justify-center gap-2 bg-foreground px-5 py-4 text-[10px] uppercase tracking-[0.32em] text-background transition-colors hover:bg-foreground/80"
+              >
+                Súmate a conquistar
+                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <button
+                type="button"
+                onClick={() => setHeroDismissed(true)}
+                className="px-5 py-4 text-[10px] uppercase tracking-[0.32em] text-foreground/55 transition-colors hover:text-foreground"
+              >
+                Solo mirar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Onboarding tour */}
       <OnboardingTour authedUsername={authedUsername} />

@@ -4,10 +4,16 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { BolgWordmark } from "@/components/bolg-wordmark";
+import { ConquestCelebration } from "@/components/conquest-celebration";
+import { TripShareRow } from "@/components/trip-share-row";
+import { countryFlag } from "@/lib/country-name";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVITY_LABELS, type ActivityType } from "@/app/trip/new/types";
 
-type Props = { params: Promise<{ trip_id: string }> };
+type Props = {
+  params: Promise<{ trip_id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { trip_id } = await params;
@@ -27,18 +33,41 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function TripPage({ params }: Props) {
+export default async function TripPage({ params, searchParams }: Props) {
   const { trip_id } = await params;
+  const sp = await searchParams;
   const supabase = await createClient();
   const { data: trip } = await supabase
     .from("trips")
     .select(
-      "id, title, description, start_at, end_at, distance_km, elevation_gain_m, start_place_name, end_place_name, start_short_name, end_short_name, country_codes, activity_type, visibility, cover_photo_url",
+      "id, title, description, start_at, end_at, distance_km, elevation_gain_m, start_place_name, end_place_name, start_short_name, end_short_name, country_codes, activity_type, visibility, cover_photo_url, user_id",
     )
     .eq("id", trip_id)
     .single();
 
   if (!trip) notFound();
+
+  const conquistado = sp?.conquistado === "1";
+  const firstBolg = sp?.firstBolg === "1";
+  const newCities = Number(sp?.newCities ?? 0) || 0;
+  const newCountries = Number(sp?.newCountries ?? 0) || 0;
+
+  // Para celebración: traemos username del autor para la share copy.
+  let celebrationAuthor: string | null = null;
+  if (conquistado) {
+    const { data: a } = await supabase
+      .from("users")
+      .select("username")
+      .eq("id", trip.user_id)
+      .single();
+    celebrationAuthor = (a?.username as string | null) ?? null;
+  }
+
+  const destFlag =
+    trip.country_codes && trip.country_codes.length > 0
+      ? countryFlag((trip.country_codes[trip.country_codes.length - 1] as string) ?? "")
+      : "";
+  const destName = (trip.end_short_name as string | null) ?? "tu destino";
 
   const [{ data: photos }, { data: claimed }] = await Promise.all([
     supabase
@@ -66,6 +95,19 @@ export default async function TripPage({ params }: Props) {
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
+      {conquistado && (
+        <ConquestCelebration
+          destination={destName}
+          destinationFlag={destFlag}
+          distanceKm={Math.round(trip.distance_km ?? 0)}
+          newCitiesCount={newCities}
+          newCountriesCount={newCountries}
+          isFirstBolgConquistador={firstBolg}
+          myRankAfter={null}
+          tripUrl={`https://atlas.bolg.cl/t/${trip.id}`}
+          authedUsername={celebrationAuthor}
+        />
+      )}
       <header className="flex items-center justify-between px-6 py-5 md:px-10 md:py-7">
         <BolgWordmark href="/" />
         <Link
@@ -172,11 +214,10 @@ export default async function TripPage({ params }: Props) {
         )}
 
         <section className="mx-auto w-full max-w-3xl border-t border-border pt-6">
-          <p className="font-mono text-xs text-foreground/45">
-            Página completa de viaje (mapa, ruta, likes, comentarios) llega en
-            Sesión 4-6. Este es el placeholder que confirma persistencia +
-            claims.
-          </p>
+          <TripShareRow
+            shareUrl={`https://atlas.bolg.cl/t/${trip.id}`}
+            destination={destName}
+          />
         </section>
       </main>
     </div>

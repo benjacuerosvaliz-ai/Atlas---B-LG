@@ -22,6 +22,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { BolgWordmark } from "@/components/bolg-wordmark";
+import { ProfileShareRow } from "@/components/profile-share-row";
 import { TripCard, tripDisplayTitle } from "@/components/trip-card";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/server";
@@ -303,6 +304,13 @@ export default async function UserProfilePage({ params }: Props) {
                   {profile.bio}
                 </p>
               )}
+              <div className="mt-3">
+                <ProfileShareRow
+                  shareUrl={`https://atlas.bolg.cl/u/${profile.username}`}
+                  displayName={profile.display_name ?? `@${profile.username}`}
+                  selfView={isSelf}
+                />
+              </div>
             </div>
           </div>
         </section>

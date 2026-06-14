@@ -32,6 +32,16 @@ export type TopTraveler = {
   totalKm: number;
 };
 
+export type ActivityEvent = {
+  username: string;
+  displayName: string | null;
+  avatarUrl: string | null;
+  cityName: string;
+  countryCode: string;
+  bolgVisible: boolean;
+  at: string; // ISO
+};
+
 export type Totals = {
   cities: number;     // ciudades registradas en la comunidad (denominador dinámico)
   countries: number;  // países que reconocemos en lib/geo
@@ -46,6 +56,7 @@ export async function loadAtlasV2Data(): Promise<{
   statusByCountryGlobal: Record<string, CountryStatus>;
   statusByCountryPersonal: Record<string, CountryStatus> | null;
   topTravelers: TopTraveler[];
+  recentActivity: ActivityEvent[];
 }> {
   const supabase = await createClient();
   const {
@@ -59,6 +70,7 @@ export async function loadAtlasV2Data(): Promise<{
     { data: globalCountryStatus },
     { count: totalCities },
     { data: topRaw },
+    { data: activityRaw },
     personalUsername,
   ] = await Promise.all([
     supabase.from("trips").select("distance_km").eq("visibility", "public"),
@@ -72,6 +84,13 @@ export async function loadAtlasV2Data(): Promise<{
       .select("id, username, display_name, avatar_url, total_km")
       .order("total_km", { ascending: false })
       .limit(25),
+    supabase
+      .from("city_visits")
+      .select(
+        "uploaded_at, bolg_visible, cities(name, country_code), users(username, display_name, avatar_url)",
+      )
+      .order("uploaded_at", { ascending: false })
+      .limit(12),
     user
       ? supabase
           .from("users")
@@ -189,6 +208,37 @@ export async function loadAtlasV2Data(): Promise<{
       totalKm: (u.total_km as number | null) ?? 0,
     }));
 
+  // Mapear actividad reciente — descartamos usuarios provisionales y rows
+  // sin city o sin user (huérfanos).
+  type RawActivity = {
+    uploaded_at: string;
+    bolg_visible: boolean;
+    cities: { name: string | null; country_code: string | null } | null;
+    users: {
+      username: string | null;
+      display_name: string | null;
+      avatar_url: string | null;
+    } | null;
+  };
+  const recentActivity: ActivityEvent[] = ((activityRaw ?? []) as unknown as RawActivity[])
+    .filter(
+      (r) =>
+        r.users?.username &&
+        !PROVISIONAL_USERNAME_RE.test(r.users.username) &&
+        r.cities?.name &&
+        r.cities?.country_code,
+    )
+    .slice(0, 8)
+    .map((r) => ({
+      username: r.users!.username!,
+      displayName: r.users?.display_name ?? null,
+      avatarUrl: r.users?.avatar_url ?? null,
+      cityName: r.cities!.name!,
+      countryCode: r.cities!.country_code!,
+      bolgVisible: !!r.bolg_visible,
+      at: r.uploaded_at,
+    }));
+
   return {
     authedUsername: personalUsername,
     globalKpis,
@@ -197,5 +247,6 @@ export async function loadAtlasV2Data(): Promise<{
     statusByCountryGlobal,
     statusByCountryPersonal,
     topTravelers,
+    recentActivity,
   };
 }

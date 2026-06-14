@@ -127,20 +127,12 @@ export function OnboardingTour({ authedUsername }: Props) {
     driverRef.current.drive();
   }, []);
 
+  // Sin auto-fire. El hero card hace el trabajo de bienvenida; este tour
+  // queda detrás del botón "?" para quien quiera repasar.
   useEffect(() => {
-    if (authedUsername) return;
-    let seen = false;
-    try {
-      seen = localStorage.getItem(STORAGE_KEY) === "1";
-    } catch {
-      /* ignore */
-    }
-    if (seen) return;
-    // Espera a que el mapa termine de cargar antes de iniciar.
-    const t = setTimeout(() => {
-      startTour();
-    }, 1500);
-    return () => clearTimeout(t);
+    // void to satisfy lint without changing behavior
+    void authedUsername;
+    void startTour;
   }, [authedUsername, startTour]);
 
   // Botón "?" siempre disponible para reabrir el tour.

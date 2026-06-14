@@ -155,7 +155,57 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
 
   revalidatePath("/dashboard");
   revalidatePath("/");
-  redirect(`/t/${tripId}`);
+
+  // --- Paso 6: stats post-conquista para la pantalla de celebración ---
+  // Cuántas ciudades y países distintos sumó este viaje al usuario.
+  // Si bolg_visible=true, también chequeamos si fue el primer conquistador
+  // BØLG de la ciudad destino.
+  const { data: myVisits } = await supabase
+    .from("city_visits")
+    .select("city_id, cities(country_code)")
+    .eq("user_id", user.id);
+
+  type V = { city_id: string; cities: { country_code: string | null } | null };
+  const myAllVisits = (myVisits ?? []) as unknown as V[];
+  const previousCities = new Set<string>();
+  const previousCountries = new Set<string>();
+  for (const v of myAllVisits) {
+    if (v.city_id === originCityRow.id || v.city_id === destCityRow.id) continue;
+    previousCities.add(v.city_id);
+    if (v.cities?.country_code) previousCountries.add(v.cities.country_code);
+  }
+  const newCities =
+    (previousCities.has(originCityRow.id) ? 0 : 1) +
+    (previousCities.has(destCityRow.id) ? 0 : 1);
+  const newCountriesSet = new Set<string>();
+  if (data.originCity.countryCode && !previousCountries.has(data.originCity.countryCode))
+    newCountriesSet.add(data.originCity.countryCode);
+  if (
+    data.destinationCity.countryCode &&
+    !previousCountries.has(data.destinationCity.countryCode)
+  )
+    newCountriesSet.add(data.destinationCity.countryCode);
+
+  // Primer conquistador BØLG del DESTINO (no del origen — el destino es la
+  // ciudad protagonista del viaje). Solo aplica si bolg_visible=true.
+  let firstBolg = false;
+  if (bolgVisible) {
+    const { count: priorBolgConquerors } = await supabase
+      .from("city_visits")
+      .select("id", { count: "exact", head: true })
+      .eq("city_id", destCityRow.id)
+      .eq("bolg_visible", true)
+      .neq("trip_id", tripId);
+    firstBolg = (priorBolgConquerors ?? 0) === 0;
+  }
+
+  const params = new URLSearchParams({
+    conquistado: "1",
+    newCities: String(newCities),
+    newCountries: String(newCountriesSet.size),
+  });
+  if (firstBolg) params.set("firstBolg", "1");
+  redirect(`/t/${tripId}?${params.toString()}`);
 }
 
 /**

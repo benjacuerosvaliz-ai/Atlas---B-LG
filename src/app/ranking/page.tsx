@@ -53,7 +53,7 @@ export default async function RankingPage() {
     } | null;
   };
 
-  const rows: RankRow[] = ((statsRaw ?? []) as unknown as StatRow[])
+  const allRows: RankRow[] = ((statsRaw ?? []) as unknown as StatRow[])
     .filter(
       (s) =>
         s.users?.username &&
@@ -69,19 +69,25 @@ export default async function RankingPage() {
       cities: s.cities_conquered ?? 0,
       lastConquestAt: s.last_conquest_at,
     }))
-    // Tiebreaker: continents > countries > cities > earliest last_conquest_at
     .sort((a, b) => {
       if (a.continents !== b.continents) return b.continents - a.continents;
       if (a.countries !== b.countries) return b.countries - a.countries;
       if (a.cities !== b.cities) return b.cities - a.cities;
-      // Ante empate total, gana quien llegó primero a su última conquista.
       const aTime = a.lastConquestAt ? new Date(a.lastConquestAt).getTime() : Infinity;
       const bTime = b.lastConquestAt ? new Date(b.lastConquestAt).getTime() : Infinity;
       return aTime - bTime;
-    })
-    .slice(0, 10);
+    });
 
+  const rows = allRows.slice(0, 10);
   const isEmpty = rows.length === 0;
+
+  // Posición del viewer en el ranking completo (1-indexed). Null si no
+  // tiene conquistas todavía o no está autenticado.
+  const myRank = user
+    ? allRows.findIndex((r) => r.userId === user.id) + 1 || null
+    : null;
+  const me = myRank ? allRows[myRank - 1] : null;
+  const inTop = myRank !== null && myRank <= 10;
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -120,7 +126,9 @@ export default async function RankingPage() {
                 <li key={r.userId}>
                   <Link
                     href={`/u/${r.username}`}
-                    className="group grid grid-cols-[2rem_3rem_1fr_auto_auto_auto_1rem] items-center gap-3 border-b border-border/60 px-2 py-4 transition-colors hover:bg-foreground/[0.04] md:gap-6 md:px-4"
+                    className={`group grid grid-cols-[2rem_3rem_1fr_auto_auto_auto_1rem] items-center gap-3 border-b border-border/60 px-2 py-4 transition-colors hover:bg-foreground/[0.04] md:gap-6 md:px-4 ${
+                      user && r.userId === user.id ? "bg-aurora/[0.06]" : ""
+                    }`}
                   >
                     <span
                       className={
@@ -160,6 +168,55 @@ export default async function RankingPage() {
             </ul>
           )}
         </section>
+
+        {user && me && !inTop && (
+          <section className="mx-auto w-full max-w-4xl">
+            <div className="flex items-center gap-3 border-2 border-foreground bg-card/95 px-3 py-4 md:gap-6 md:px-4">
+              <span className="font-display text-xl font-black tabular-nums text-foreground md:text-2xl">
+                #{myRank}
+              </span>
+              <Avatar className="h-11 w-11 shrink-0 bg-fog">
+                {me.avatarUrl && (
+                  <AvatarImage src={me.avatarUrl} alt={me.displayName ?? me.username} />
+                )}
+                <AvatarFallback className="bg-fog text-xs font-black text-foreground/75">
+                  {initialsFrom(me.displayName ?? me.username)}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="truncate text-sm">
+                  Tú · {me.displayName ?? `@${me.username}`}
+                </span>
+                <span className="truncate font-mono text-[10px] text-foreground/55">
+                  {me.continents} continentes · {me.countries} países ·{" "}
+                  {me.cities} ciudades
+                </span>
+              </div>
+              <Link
+                href="/trip/new"
+                className="hidden shrink-0 items-center gap-1 bg-foreground px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-background sm:flex"
+              >
+                Subir <ArrowRight className="h-3 w-3" />
+              </Link>
+            </div>
+            <p className="mt-3 text-center font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
+              Te faltan {myRank! - 10} {myRank! - 10 === 1 ? "puesto" : "puestos"} para
+              entrar al top 10
+            </p>
+          </section>
+        )}
+
+        {user && !me && (
+          <section className="mx-auto w-full max-w-4xl">
+            <Link
+              href="/trip/new"
+              className="group flex items-center justify-center gap-2 border-2 border-foreground bg-foreground/[0.04] px-6 py-5 text-[10px] uppercase tracking-[0.32em] text-foreground transition-colors hover:bg-foreground/10"
+            >
+              Aún sin conquistas — Cargar mi primer viaje
+              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </section>
+        )}
 
         {!user && (
           <section className="mx-auto w-full max-w-4xl">
