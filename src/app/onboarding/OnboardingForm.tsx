@@ -2,6 +2,8 @@
 
 import { ArrowRight, Check, ImageOff, Loader2 } from "lucide-react";
 import { useActionState, useState } from "react";
+import { CityPicker } from "@/components/city-picker";
+import type { City } from "@/lib/mapbox";
 import { cn } from "@/lib/utils";
 import { completeOnboarding, type OnboardingState } from "./actions";
 
@@ -24,6 +26,7 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
+  const [city, setCity] = useState<City | undefined>(undefined);
   const [state, formAction, isPending] = useActionState(
     completeOnboarding,
     INITIAL_STATE,
@@ -93,15 +96,20 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
             />
           </Field>
 
-          <Field label="Ciudad" hint="Opcional. Para ubicarte en el mapa.">
-            <input
-              name="city"
-              type="text"
-              maxLength={80}
-              autoComplete="address-level2"
-              placeholder="Santiago"
-              className={inputCls}
+          <Field
+            label="¿Desde qué ciudad partes?"
+            hint="Opcional. Elige una de las sugerencias — no escribas libre."
+          >
+            <CityPicker
+              label=""
+              value={city}
+              onChange={setCity}
+              placeholder="Busca tu ciudad: Santiago, Pucón, Madrid..."
             />
+            {/* Hidden input para que el FormData del action server reciba el
+                nombre de la ciudad como string. Se mantiene compat con el
+                action existente que lee formData.get("city"). */}
+            <input type="hidden" name="city" value={city?.name ?? ""} />
           </Field>
 
           <Field
