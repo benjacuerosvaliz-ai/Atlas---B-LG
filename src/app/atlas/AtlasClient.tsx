@@ -13,6 +13,7 @@ import { CONTINENT_NAMES, COUNTRY_TO_CONTINENT, type ContinentCode } from "@/lib
 import { cn } from "@/lib/utils";
 import type {
   ActivityEvent,
+  Bolg100Status,
   ConqueredCity,
   CountryStatus,
   Kpis,
@@ -43,6 +44,7 @@ type Props = {
   topTravelers: TopTraveler[];
   recentActivity: ActivityEvent[];
   conqueredCities: ConqueredCity[];
+  bolg100Status: Bolg100Status[];
 };
 
 type Mode = "global" | "personal";
@@ -77,6 +79,7 @@ export function AtlasClient(props: Props) {
     topTravelers,
     recentActivity,
     conqueredCities,
+    bolg100Status,
   } = props;
   const [heroDismissed, setHeroDismissed] = useState(false);
   const [mode, setMode] = useState<Mode>("global");
@@ -214,6 +217,7 @@ export function AtlasClient(props: Props) {
       <div className="absolute inset-0 z-0" data-tour="map">
         <WorldMap
           cityPins={cityPins}
+          bolg100Pins={bolg100Status}
           selectedCityId={selectedCityId}
           selectedCountry={selectedCountry}
           onCountryClick={handleCountryClick}
@@ -255,6 +259,13 @@ export function AtlasClient(props: Props) {
               </div>
             </div>
           )}
+
+          {/* BØLG-100 progress row — el goal del juego. Aparece ENCIMA de
+              los KPIs porque es lo más prestigioso. */}
+          <Bolg100Progress
+            hit={kpis.bolg100Hit}
+            total={totals.bolg100}
+          />
 
           {/* KPIs with X/Y fractions */}
           <div className="grid grid-cols-4 gap-2 px-4 py-3 md:gap-4 md:px-5 md:py-4" data-tour="kpis">
@@ -529,6 +540,34 @@ function ModeButton({
     >
       {children}
     </button>
+  );
+}
+
+function Bolg100Progress({ hit, total }: { hit: number; total: number }) {
+  const pct = total > 0 ? Math.min(100, (hit / total) * 100) : 0;
+  return (
+    <div className="flex flex-col gap-2 px-4 py-3 md:px-5">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-[10px] uppercase tracking-[0.32em] text-ember">
+          ★ Destinos BØLG · Curados
+        </span>
+        <span className="font-display text-base font-black tabular-nums tracking-tight md:text-lg">
+          <span className="text-foreground">{hit}</span>
+          <span className="text-foreground/40"> / {total}</span>
+        </span>
+      </div>
+      <div className="relative h-1.5 w-full overflow-hidden bg-foreground/[0.08]">
+        <div
+          className="absolute inset-y-0 left-0 bg-ember transition-[width] duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-[10px] leading-snug text-foreground/55">
+        Los 100 lugares del mundo que importan según BØLG. Outdoor, cultura,
+        rincones escondidos. El que llegue primero a un destino con un BØLG
+        queda con su nombre clavado ahí.
+      </p>
+    </div>
   );
 }
 

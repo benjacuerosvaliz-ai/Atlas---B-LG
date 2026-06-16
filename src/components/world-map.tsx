@@ -36,15 +36,31 @@ export type CityPin = {
   conquerorUsername: string | null;
 };
 
+export type Bolg100Pin = {
+  id: string;
+  name: string;
+  country: string;
+  lat: number;
+  lng: number;
+  touched: boolean;
+  touchedByMe: boolean;
+  bolgVisibleHit: boolean;
+  hook: string;
+};
+
 export type WorldMapProps = {
   /** Pins por cada ciudad conquistada en la comunidad. */
   cityPins: CityPin[];
+  /** 100 destinos BØLG. Los `touched: false` se renderizan como targets vacíos. */
+  bolg100Pins?: Bolg100Pin[];
   /** Pin actualmente seleccionado (se dibuja más grande). */
   selectedCityId?: string | null;
   /** Click sobre un país (alpha-2 lowercase). Se usa para el drill-down. */
   onCountryClick?: (countryCode: string) => void;
   /** Click sobre un pin de ciudad. */
   onCityClick?: (cityId: string) => void;
+  /** Click sobre un destino BØLG-100. */
+  onBolg100Click?: (bolg100Id: string) => void;
   /** País actualmente seleccionado (se resalta con stroke). */
   selectedCountry?: string | null;
 };
@@ -107,12 +123,16 @@ const PIN_NO_BOLG = "#5a5754"; // gris más oscuro — visita sin BØLG
 const PIN_STROKE = "#0a0a0a"; // borde oscuro para legibilidad sobre el mist
 const HALO_BOLG = "#5bc0be"; // halo aurora
 const HALO_NO_BOLG = "#5a5754";
+const BOLG100_TARGET = "#d4a373"; // ember — target sin conquistar
+const BOLG100_TARGET_STROKE = "#0a0a0a";
 
 export const WorldMap = memo(function WorldMap({
   cityPins,
+  bolg100Pins,
   selectedCityId,
   onCountryClick,
   onCityClick,
+  onBolg100Click,
   selectedCountry,
 }: WorldMapProps) {
   const pins = useMemo(() => cityPins, [cityPins]);
@@ -186,6 +206,44 @@ export const WorldMap = memo(function WorldMap({
             })
           }
         </Geographies>
+
+        {/* Ghost pins de los BØLG-100 sin conquistar — markers tipo "target"
+            con anillo ember discontinuo. Si touched=true, los saltamos
+            (esa ciudad ya aparece como pin normal abajo). */}
+        {(bolg100Pins ?? [])
+          .filter((d) => !d.touched)
+          .map((d) => (
+            <Marker
+              key={`b100-${d.id}`}
+              coordinates={[d.lng, d.lat]}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (onBolg100Click) onBolg100Click(d.id);
+              }}
+              style={{
+                default: { cursor: "pointer", outline: "none" },
+                hover: { cursor: "pointer", outline: "none" },
+                pressed: { cursor: "pointer", outline: "none" },
+              }}
+            >
+              <circle
+                r={5.5}
+                fill="transparent"
+                stroke={BOLG100_TARGET}
+                strokeWidth={1.4}
+                strokeDasharray="2 1.6"
+              >
+                <title>{`${d.name} · ${d.country} — destino BØLG sin conquistar`}</title>
+              </circle>
+              {/* Estrella pequeña al centro para el reconocimiento visual */}
+              <path
+                d="M0,-2.4 L0.7,-0.7 L2.4,-0.7 L1,0.4 L1.5,2.2 L0,1.2 L-1.5,2.2 L-1,0.4 L-2.4,-0.7 L-0.7,-0.7 Z"
+                fill={BOLG100_TARGET}
+                stroke={BOLG100_TARGET_STROKE}
+                strokeWidth={0.3}
+              />
+            </Marker>
+          ))}
 
         {pins.map((pin) => {
           const isActive = pin.cityId === selectedCityId;
