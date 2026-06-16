@@ -181,12 +181,9 @@ export function AtlasClient(props: Props) {
         </Link>
       )}
 
-      {/* SECTION 1 — Map hero. 100dvh con todo el UI flotante. El usuario
-          ve esto primero; abajo aparecen las secciones de stats con scroll. */}
-      <section className="relative h-[100dvh] w-full overflow-hidden">
-      {/* Header */}
+      {/* Header — normal flow (no más absolute sobre el mapa) */}
       <header
-        className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-4 py-4 md:px-8 md:py-5"
+        className="relative z-30 flex items-center justify-between gap-3 px-4 py-4 md:px-8 md:py-5"
         data-tour="header"
       >
         <BolgWordmark href="/" />
@@ -221,8 +218,27 @@ export function AtlasClient(props: Props) {
         </div>
       </header>
 
-      {/* Live activity ticker + monthly prize ribbon — just below header */}
-      <div className="pointer-events-none absolute inset-x-0 top-[60px] z-[25] flex items-center justify-between gap-2 px-4 md:top-[72px] md:px-8">
+      {/* KPI BANNER — arriba del mapa. Es lo primero que ve el usuario:
+          cuánto kilometraje + cuántas ciudades / países / continentes
+          conquistados.  Mobile 4 cols (compactas), desktop 4 cols grandes. */}
+      <section
+        className="relative z-30 border-y border-border bg-card/40 px-4 py-3 md:px-8 md:py-4"
+        data-tour="kpis"
+      >
+        <div className="mx-auto grid w-full max-w-5xl grid-cols-4 gap-2 md:gap-6">
+          <Kpi value={kpis.totalKm} label="Km" />
+          <Kpi value={kpis.citiesVisited} label="Ciudades" />
+          <Kpi value={kpis.countriesRecorridos} total={totals.countries} label="Países" />
+          <Kpi value={kpis.continentsConocidos} total={totals.continents} label="Continentes" />
+        </div>
+      </section>
+
+      {/* SECTION 1 — Map hero. Altura calculada: 100dvh - header - banner.
+          El mapa sigue siendo el protagonista pero el banner queda visible
+          arriba siempre que estés en este fold. */}
+      <section className="relative h-[calc(100dvh-200px)] w-full overflow-hidden md:h-[calc(100dvh-220px)]">
+      {/* Live activity ticker + monthly prize chip — sobre el mapa */}
+      <div className="pointer-events-none absolute inset-x-0 top-2 z-[25] flex items-center justify-between gap-2 px-4 md:px-8">
         <ActivityTicker events={recentActivity} />
         <div className="pointer-events-auto">
           <MonthlyPrizeChip />
@@ -332,14 +348,15 @@ export function AtlasClient(props: Props) {
       )}
       </section>
 
-      {/* SECTION 2 — Mode toggle (solo authed) + BØLG-100 progress */}
-      <section className="border-t border-border px-4 py-8 md:px-8 md:py-10">
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-          {authedUsername && (
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-                Viendo
-              </span>
+      {/* SECTION 2 — Países conquistados. JUSTO debajo del mapa. Tarjetas
+          con bandera grande para que se reconozca a primera vista. */}
+      <section className="border-t border-border bg-card/30 px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/55">
+              Países conquistados
+            </span>
+            {authedUsername && (
               <div className="flex gap-1 border border-border p-1">
                 <ModeButton active={mode === "global"} onClick={() => setMode("global")}>
                   Global
@@ -348,95 +365,11 @@ export function AtlasClient(props: Props) {
                   Personal
                 </ModeButton>
               </div>
-            </div>
-          )}
-          <Bolg100Progress
-            hit={kpis.bolg100Hit}
-            total={totals.bolg100}
-          />
-        </div>
-      </section>
-
-      {/* SECTION 3 — KPIs grid */}
-      <section
-        className="border-t border-border px-4 py-8 md:px-8 md:py-10"
-        data-tour="kpis"
-      >
-        <div className="mx-auto w-full max-w-3xl">
-          <span className="block text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-            Métricas
-          </span>
-          <div className="mt-4 grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
-            <Kpi value={kpis.totalKm} label="Km" />
-            <Kpi value={kpis.citiesVisited} label="Ciudades" />
-            <Kpi value={kpis.countriesRecorridos} total={totals.countries} label="Países" />
-            <Kpi value={kpis.continentsConocidos} total={totals.continents} label="Continentes" />
+            )}
           </div>
-        </div>
-      </section>
-
-      {/* SECTION 4 — Top travelers */}
-      {topTravelers.length > 0 && (
-        <section
-          className="border-t border-border px-4 py-8 md:px-8 md:py-10"
-          data-tour="top"
-        >
-          <div className="mx-auto w-full max-w-3xl">
-            <div className="mb-4 flex items-baseline justify-between gap-3">
-              <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-                Top conquistadores
-              </span>
-              <Link
-                href="/ranking"
-                className="text-[10px] uppercase tracking-[0.28em] text-foreground/55 transition-colors hover:text-foreground"
-              >
-                Ver ranking →
-              </Link>
-            </div>
-            <ul className="flex flex-col gap-2">
-              {topTravelers.map((t, idx) => (
-                <li key={t.id}>
-                  <Link
-                    href={`/u/${t.username}`}
-                    className="group flex items-center gap-4 border border-border bg-card/40 px-3 py-3 transition-colors hover:bg-card/80 md:px-4"
-                  >
-                    <span className="w-6 shrink-0 font-display text-base font-black tabular-nums text-foreground/55 md:text-lg">
-                      #{idx + 1}
-                    </span>
-                    <Avatar className="h-9 w-9 shrink-0 bg-fog md:h-10 md:w-10">
-                      {t.avatarUrl && (
-                        <AvatarImage src={t.avatarUrl} alt={t.displayName ?? t.username} />
-                      )}
-                      <AvatarFallback className="bg-fog text-[10px] font-black text-foreground/75">
-                        {initialsFrom(t.displayName ?? t.username)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex min-w-0 flex-1 flex-col">
-                      <span className="truncate text-sm">
-                        {t.displayName ?? `@${t.username}`}
-                      </span>
-                      <span className="truncate font-mono text-[10px] tabular-nums text-foreground/55">
-                        {Math.round(t.totalKm).toLocaleString("es-CL")} km
-                      </span>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-      )}
-
-      {/* SECTION 5 — Country chips. Drill-down: clic en chip auto-scroll
-          al mapa y abre el CountryPanel. */}
-      <section className="border-t border-border px-4 py-8 md:px-8 md:py-10">
-        <div className="mx-auto w-full max-w-3xl">
-          <span className="block text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-            Países conquistados
-          </span>
           {countryChips.length > 0 ? (
-            <div className="-mx-4 mt-4 overflow-x-auto px-4 md:-mx-8 md:px-8">
-              <div className="flex min-w-min items-center gap-2">
+            <div className="-mx-4 mt-5 overflow-x-auto px-4 md:-mx-8 md:px-8">
+              <div className="flex min-w-min items-stretch gap-3">
                 {countryChips.map((c) => {
                   const active = c.code === selectedCountry;
                   return (
@@ -448,18 +381,20 @@ export function AtlasClient(props: Props) {
                         window.scrollTo({ top: 0, behavior: "smooth" });
                       }}
                       className={cn(
-                        "flex shrink-0 items-center gap-1.5 border px-2.5 py-1.5 text-[10px] uppercase tracking-[0.24em] transition-colors",
+                        "group flex shrink-0 flex-col items-center justify-center gap-1.5 border-2 px-4 py-3 transition-colors md:px-6 md:py-4",
                         active
                           ? "border-foreground bg-foreground text-background"
                           : c.status === "complete"
-                            ? "border-foreground/70 text-foreground"
-                            : "border-border text-foreground/65 hover:border-foreground/70 hover:text-foreground",
+                            ? "border-aurora/60 bg-card hover:border-aurora"
+                            : "border-border bg-card hover:border-foreground/60",
                       )}
                     >
-                      <span className="text-sm leading-none">
+                      <span className="text-3xl leading-none md:text-4xl">
                         {countryFlag(c.code)}
                       </span>
-                      <span>{countryDisplayName(c.code)}</span>
+                      <span className="whitespace-nowrap text-[10px] uppercase tracking-[0.24em]">
+                        {countryDisplayName(c.code)}
+                      </span>
                       {c.status === "complete" && (
                         <span
                           className={cn(
@@ -467,7 +402,7 @@ export function AtlasClient(props: Props) {
                             active ? "text-background/70" : "text-aurora",
                           )}
                         >
-                          ✓
+                          ✓ Conquistado
                         </span>
                       )}
                     </button>
@@ -482,6 +417,86 @@ export function AtlasClient(props: Props) {
           )}
         </div>
       </section>
+
+      {/* SECTION 3 — BØLG-100 progress */}
+      <section className="border-t border-border px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto w-full max-w-3xl">
+          <Bolg100Progress
+            hit={kpis.bolg100Hit}
+            total={totals.bolg100}
+          />
+        </div>
+      </section>
+
+      {/* SECTION 4 — Top conquistadores. Avatares grandes con foto real,
+          card prominente. Scrolleable abajo del mapa, foto de perfil
+          dominante (request explícito del founder). */}
+      {topTravelers.length > 0 && (
+        <section
+          className="border-t border-border px-4 py-8 md:px-8 md:py-12"
+          data-tour="top"
+        >
+          <div className="mx-auto w-full max-w-3xl">
+            <div className="mb-6 flex items-baseline justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/55">
+                Top conquistadores
+              </span>
+              <Link
+                href="/ranking"
+                className="text-[10px] uppercase tracking-[0.28em] text-foreground/55 transition-colors hover:text-foreground"
+              >
+                Ver ranking completo →
+              </Link>
+            </div>
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              {topTravelers.map((t, idx) => (
+                <li key={t.id}>
+                  <Link
+                    href={`/u/${t.username}`}
+                    className="group flex flex-col items-center gap-3 border border-border bg-card/60 p-5 transition-colors hover:border-foreground/70 hover:bg-card md:p-6"
+                  >
+                    <span
+                      className={cn(
+                        "font-display text-lg font-black tabular-nums md:text-xl",
+                        idx === 0
+                          ? "text-aurora"
+                          : idx === 1
+                            ? "text-ember"
+                            : "text-foreground/55",
+                      )}
+                    >
+                      #{idx + 1}
+                    </span>
+                    <Avatar className="h-20 w-20 shrink-0 bg-fog md:h-24 md:w-24">
+                      {t.avatarUrl && (
+                        <AvatarImage
+                          src={t.avatarUrl}
+                          alt={t.displayName ?? t.username}
+                          className="object-cover"
+                        />
+                      )}
+                      <AvatarFallback className="bg-fog text-base font-black text-foreground/75 md:text-lg">
+                        {initialsFrom(t.displayName ?? t.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex w-full min-w-0 flex-col items-center gap-0.5 text-center">
+                      <span className="line-clamp-1 text-sm font-medium">
+                        {t.displayName ?? `@${t.username}`}
+                      </span>
+                      <span className="font-mono text-[10px] tabular-nums text-foreground/55">
+                        @{t.username}
+                      </span>
+                      <span className="mt-1 font-display text-base font-black tabular-nums tracking-tight md:text-lg">
+                        {Math.round(t.totalKm).toLocaleString("es-CL")} km
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
 
       {/* SECTION 6 — CTA "Hazte parte" solo para anónimos */}
       {!authedUsername && (
@@ -527,7 +542,7 @@ function getContinent(countryCode: string): string {
 function ColorLegend() {
   const [open, setOpen] = useState(true);
   return (
-    <div className="pointer-events-none absolute left-4 top-[120px] z-20 md:left-8 md:top-[140px]">
+    <div className="pointer-events-none absolute left-4 top-12 z-20 md:left-8 md:top-14">
       <div className="pointer-events-auto flex flex-col gap-1.5 border border-border bg-card/85 p-2.5 backdrop-blur-sm">
         <button
           type="button"
