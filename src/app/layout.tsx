@@ -33,6 +33,17 @@ export const metadata: Metadata = {
     type: "website",
     locale: "es_CL",
   },
+  // Declaramos color-scheme: dark para que iOS Safari NO intente
+  // auto-oscurecer los colores cuando el iPhone está en modo oscuro
+  // del sistema (causa que territorios sutiles se vuelvan invisibles).
+  other: {
+    "color-scheme": "dark",
+  },
+};
+
+export const viewport = {
+  themeColor: "#0a0a0a",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({

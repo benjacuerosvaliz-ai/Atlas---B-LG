@@ -138,6 +138,9 @@
   }
   html {
     @apply font-sans;
+    /* Forzar color-scheme dark para que iOS Safari no auto-oscurezca
+       colores cuando el iPhone está en modo oscuro del sistema. */
+    color-scheme: dark;
   }
   body {
     @apply bg-background text-foreground antialiased;

@@ -164,7 +164,26 @@ export function AtlasClient(props: Props) {
   }
 
   return (
-    <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
+    <div className="flex w-full flex-col bg-background">
+      {/* Floating "Cargar viaje" — siempre visible mientras navegan, no
+          se pierde al hacer scroll. Solo authed users. */}
+      {authedUsername && (
+        <Link
+          href="/trip/new"
+          className="fixed bottom-6 right-4 z-50 flex items-center gap-2 bg-foreground px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-background shadow-lg transition-colors hover:bg-foreground/80 md:right-8"
+          data-tour="upload"
+          style={{
+            bottom: "max(1.5rem, env(safe-area-inset-bottom))",
+          }}
+        >
+          <Plus className="h-3 w-3" />
+          Cargar viaje
+        </Link>
+      )}
+
+      {/* SECTION 1 — Map hero. 100dvh con todo el UI flotante. El usuario
+          ve esto primero; abajo aparecen las secciones de stats con scroll. */}
+      <section className="relative h-[100dvh] w-full overflow-hidden">
       {/* Header */}
       <header
         className="absolute inset-x-0 top-0 z-30 flex items-center justify-between gap-3 px-4 py-4 md:px-8 md:py-5"
@@ -225,175 +244,11 @@ export function AtlasClient(props: Props) {
         />
       </div>
 
-      {/* Floating "Cargar viaje" CTA for authed users.
-          Mobile bottom panel grew con la fila BØLG-100, así que lo subimos
-          a bottom-[360px] en mobile para que no tape el row top travelers. */}
-      {authedUsername && (
-        <Link
-          href="/trip/new"
-          className="absolute bottom-[360px] right-4 z-30 flex items-center gap-2 bg-foreground px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-background shadow-lg transition-colors hover:bg-foreground/80 sm:bottom-[260px] md:bottom-[280px] md:right-8"
-          data-tour="upload"
-        >
-          <Plus className="h-3 w-3" />
-          Cargar viaje
-        </Link>
-      )}
-
-      {/* Bottom panel: Mode toggle → KPIs → Top travelers → Country chips.
-          pb usa safe-area-inset-bottom para que el CTA final no quede tapado
-          por la home-indicator de iOS ni el N de devtools. */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 px-4 md:px-8"
-        style={{
-          paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
-        }}
-      >
-        <div
-          className="pointer-events-auto flex flex-col divide-y divide-border border border-border bg-card/90 backdrop-blur-sm"
-          data-tour="hud"
-        >
-          {/* Mode toggle (solo si autenticado) */}
-          {authedUsername && (
-            <div className="flex items-center justify-between gap-3 px-4 py-2 md:px-5">
-              <span className="text-[9px] uppercase tracking-[0.32em] text-foreground/45">
-                Viendo
-              </span>
-              <div className="flex gap-1">
-                <ModeButton active={mode === "global"} onClick={() => setMode("global")}>
-                  Global
-                </ModeButton>
-                <ModeButton active={mode === "personal"} onClick={() => setMode("personal")}>
-                  Personal
-                </ModeButton>
-              </div>
-            </div>
-          )}
-
-          {/* BØLG-100 progress row — el goal del juego. Aparece ENCIMA de
-              los KPIs porque es lo más prestigioso. */}
-          <Bolg100Progress
-            hit={kpis.bolg100Hit}
-            total={totals.bolg100}
-          />
-
-          {/* KPIs with X/Y fractions.
-              Mobile: 2x2 grid para que "Continentes" no se corte. Desktop:
-              fila de 4 como antes. */}
-          <div className="grid grid-cols-2 gap-2 px-4 py-3 md:grid-cols-4 md:gap-4 md:px-5 md:py-4" data-tour="kpis">
-            <Kpi value={kpis.totalKm} label="Km" />
-            {/* Ciudades sin denominador — no hay un "total mundial" sensato.
-                Solo es un contador de momentum. */}
-            <Kpi value={kpis.citiesVisited} label="Ciudades" />
-            <Kpi value={kpis.countriesRecorridos} total={totals.countries} label="Países" />
-            <Kpi value={kpis.continentsConocidos} total={totals.continents} label="Continentes" />
-          </div>
-
-          {/* Top travelers strip.
-              pl-12 en mobile reserva el espacio del botón "?" del tour
-              (absolute bottom-[140px] left-4, 40px ancho) que en pantallas
-              chicas cae sobre esta fila — sin él los avatares se montan
-              encima. Desktop usa md:pl-0 porque el "?" cambia de posición. */}
-          {topTravelers.length > 0 && (
-            <div className="flex items-center gap-3 px-4 py-3 pl-12 md:px-5 md:pl-5" data-tour="top">
-              <span className="shrink-0 text-[10px] uppercase tracking-[0.28em] text-foreground/50">
-                Top
-              </span>
-              <div className="-mx-2 flex flex-1 items-center gap-1 overflow-x-auto px-2">
-                {topTravelers.map((t, idx) => (
-                  <Link
-                    key={t.id}
-                    href={`/u/${t.username}`}
-                    className="group flex shrink-0 items-center gap-2 border border-transparent px-2 py-1.5 transition-colors hover:border-border hover:bg-foreground/[0.04]"
-                  >
-                    <span className="font-mono text-[10px] tabular-nums text-foreground/45">
-                      #{idx + 1}
-                    </span>
-                    <Avatar className="h-7 w-7 bg-fog">
-                      {t.avatarUrl && (
-                        <AvatarImage src={t.avatarUrl} alt={t.displayName ?? t.username} />
-                      )}
-                      <AvatarFallback className="bg-fog text-[9px] font-black text-foreground/75">
-                        {initialsFrom(t.displayName ?? t.username)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col leading-tight">
-                      <span className="text-[11px]">
-                        {t.displayName ?? `@${t.username}`}
-                      </span>
-                      <span className="font-mono text-[9px] tabular-nums text-foreground/55">
-                        {Math.round(t.totalKm).toLocaleString("es-CL")} km
-                      </span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-              <Link
-                href="/ranking"
-                className="shrink-0 text-[10px] uppercase tracking-[0.28em] text-foreground/55 transition-colors hover:text-foreground"
-              >
-                Ver todos →
-              </Link>
-            </div>
-          )}
-
-          {/* Country chips */}
-          <div className="px-4 py-3 md:px-5">
-            {countryChips.length > 0 ? (
-              <div className="-mx-2 overflow-x-auto px-2">
-                <div className="flex min-w-min items-center gap-2">
-                  {countryChips.map((c) => {
-                    const active = c.code === selectedCountry;
-                    return (
-                      <button
-                        key={c.code}
-                        type="button"
-                        onClick={() => handleCountryClick(c.code)}
-                        className={cn(
-                          "flex shrink-0 items-center gap-1.5 border px-2.5 py-1.5 text-[10px] uppercase tracking-[0.24em] transition-colors",
-                          active
-                            ? "border-foreground bg-foreground text-background"
-                            : c.status === "complete"
-                              ? "border-foreground/70 text-foreground"
-                              : "border-border text-foreground/65 hover:border-foreground/70 hover:text-foreground",
-                        )}
-                      >
-                        <span className="text-sm leading-none">
-                          {countryFlag(c.code)}
-                        </span>
-                        <span>{countryDisplayName(c.code)}</span>
-                        {c.status === "complete" && (
-                          <span
-                            className={cn(
-                              "font-mono text-[9px]",
-                              active ? "text-background/70" : "text-aurora",
-                            )}
-                          >
-                            ✓
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ) : (
-              <p className="font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/50">
-                Sin viajes registrados todavía. Sé el primer conquistador.
-              </p>
-            )}
-          </div>
-
-          {!authedUsername && (
-            <Link
-              href="/login"
-              className="group flex items-center justify-center gap-2 bg-foreground/[0.03] px-3 py-2.5 text-center text-[10px] uppercase tracking-[0.32em] text-foreground/70 transition-colors hover:bg-foreground/[0.06] hover:text-foreground md:px-4"
-              data-tour="join"
-            >
-              Hazte parte de la comunidad
-              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-            </Link>
-          )}
-        </div>
+      {/* Scroll hint — solo en mobile, indica que hay más abajo. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-4 z-20 flex justify-center sm:bottom-6">
+        <span className="font-mono text-[9px] uppercase tracking-[0.32em] text-foreground/45 animate-bounce">
+          ↓ Desliza para ver tu progreso
+        </span>
       </div>
 
       {/* Anonymous hero hook — manifesto card. En mobile va anclado arriba
@@ -475,6 +330,191 @@ export function AtlasClient(props: Props) {
           showInvite={!authedUsername}
         />
       )}
+      </section>
+
+      {/* SECTION 2 — Mode toggle (solo authed) + BØLG-100 progress */}
+      <section className="border-t border-border px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+          {authedUsername && (
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+                Viendo
+              </span>
+              <div className="flex gap-1 border border-border p-1">
+                <ModeButton active={mode === "global"} onClick={() => setMode("global")}>
+                  Global
+                </ModeButton>
+                <ModeButton active={mode === "personal"} onClick={() => setMode("personal")}>
+                  Personal
+                </ModeButton>
+              </div>
+            </div>
+          )}
+          <Bolg100Progress
+            hit={kpis.bolg100Hit}
+            total={totals.bolg100}
+          />
+        </div>
+      </section>
+
+      {/* SECTION 3 — KPIs grid */}
+      <section
+        className="border-t border-border px-4 py-8 md:px-8 md:py-10"
+        data-tour="kpis"
+      >
+        <div className="mx-auto w-full max-w-3xl">
+          <span className="block text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+            Métricas
+          </span>
+          <div className="mt-4 grid grid-cols-2 gap-6 md:grid-cols-4 md:gap-8">
+            <Kpi value={kpis.totalKm} label="Km" />
+            <Kpi value={kpis.citiesVisited} label="Ciudades" />
+            <Kpi value={kpis.countriesRecorridos} total={totals.countries} label="Países" />
+            <Kpi value={kpis.continentsConocidos} total={totals.continents} label="Continentes" />
+          </div>
+        </div>
+      </section>
+
+      {/* SECTION 4 — Top travelers */}
+      {topTravelers.length > 0 && (
+        <section
+          className="border-t border-border px-4 py-8 md:px-8 md:py-10"
+          data-tour="top"
+        >
+          <div className="mx-auto w-full max-w-3xl">
+            <div className="mb-4 flex items-baseline justify-between gap-3">
+              <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+                Top conquistadores
+              </span>
+              <Link
+                href="/ranking"
+                className="text-[10px] uppercase tracking-[0.28em] text-foreground/55 transition-colors hover:text-foreground"
+              >
+                Ver ranking →
+              </Link>
+            </div>
+            <ul className="flex flex-col gap-2">
+              {topTravelers.map((t, idx) => (
+                <li key={t.id}>
+                  <Link
+                    href={`/u/${t.username}`}
+                    className="group flex items-center gap-4 border border-border bg-card/40 px-3 py-3 transition-colors hover:bg-card/80 md:px-4"
+                  >
+                    <span className="w-6 shrink-0 font-display text-base font-black tabular-nums text-foreground/55 md:text-lg">
+                      #{idx + 1}
+                    </span>
+                    <Avatar className="h-9 w-9 shrink-0 bg-fog md:h-10 md:w-10">
+                      {t.avatarUrl && (
+                        <AvatarImage src={t.avatarUrl} alt={t.displayName ?? t.username} />
+                      )}
+                      <AvatarFallback className="bg-fog text-[10px] font-black text-foreground/75">
+                        {initialsFrom(t.displayName ?? t.username)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm">
+                        {t.displayName ?? `@${t.username}`}
+                      </span>
+                      <span className="truncate font-mono text-[10px] tabular-nums text-foreground/55">
+                        {Math.round(t.totalKm).toLocaleString("es-CL")} km
+                      </span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {/* SECTION 5 — Country chips. Drill-down: clic en chip auto-scroll
+          al mapa y abre el CountryPanel. */}
+      <section className="border-t border-border px-4 py-8 md:px-8 md:py-10">
+        <div className="mx-auto w-full max-w-3xl">
+          <span className="block text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+            Países conquistados
+          </span>
+          {countryChips.length > 0 ? (
+            <div className="-mx-4 mt-4 overflow-x-auto px-4 md:-mx-8 md:px-8">
+              <div className="flex min-w-min items-center gap-2">
+                {countryChips.map((c) => {
+                  const active = c.code === selectedCountry;
+                  return (
+                    <button
+                      key={c.code}
+                      type="button"
+                      onClick={() => {
+                        handleCountryClick(c.code);
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      className={cn(
+                        "flex shrink-0 items-center gap-1.5 border px-2.5 py-1.5 text-[10px] uppercase tracking-[0.24em] transition-colors",
+                        active
+                          ? "border-foreground bg-foreground text-background"
+                          : c.status === "complete"
+                            ? "border-foreground/70 text-foreground"
+                            : "border-border text-foreground/65 hover:border-foreground/70 hover:text-foreground",
+                      )}
+                    >
+                      <span className="text-sm leading-none">
+                        {countryFlag(c.code)}
+                      </span>
+                      <span>{countryDisplayName(c.code)}</span>
+                      {c.status === "complete" && (
+                        <span
+                          className={cn(
+                            "font-mono text-[9px]",
+                            active ? "text-background/70" : "text-aurora",
+                          )}
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 font-mono text-[10px] uppercase tracking-[0.24em] text-foreground/50">
+              Sin viajes registrados todavía. Sé el primer conquistador.
+            </p>
+          )}
+        </div>
+      </section>
+
+      {/* SECTION 6 — CTA "Hazte parte" solo para anónimos */}
+      {!authedUsername && (
+        <section
+          className="border-t border-border px-4 py-10 md:px-8 md:py-14"
+          data-tour="join"
+        >
+          <div className="mx-auto w-full max-w-3xl">
+            <Link
+              href="/login"
+              className="group flex items-center justify-center gap-2 border-2 border-foreground bg-foreground/[0.04] px-6 py-5 text-center text-[10px] uppercase tracking-[0.32em] text-foreground transition-colors hover:bg-foreground/10"
+            >
+              Hazte parte de la comunidad
+              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        </section>
+      )}
+
+      {/* Footer minimal */}
+      <footer
+        className="border-t border-border px-4 py-8 md:px-8"
+        style={{
+          paddingBottom: "max(2rem, env(safe-area-inset-bottom))",
+        }}
+      >
+        <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-2">
+          <BolgWordmark href="/" />
+          <span className="font-mono text-[10px] uppercase tracking-[0.32em] text-foreground/40">
+            Atlas BØLG · Cada viaje cuenta
+          </span>
+        </div>
+      </footer>
     </div>
   );
 }

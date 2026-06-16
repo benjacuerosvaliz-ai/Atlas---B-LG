@@ -117,7 +117,10 @@ const NUMERIC_TO_ALPHA2: Record<string, string> = {
 // CON ciudades visitadas reciben un tinte sutil (no es "el país entero
 // conquistado" — solo un hint visual de que ese territorio está tocado).
 const COUNTRY_FILL = "#dcd8d0"; // mist — país sin actividad
-const COUNTRY_FILL_TOUCHED = "#c5d6d3"; // mist con tinte aurora suave — al menos 1 ciudad visitada
+// Tinte aurora más marcado en países con ≥1 visita. Antes era casi
+// imperceptible y se invisibilizaba en iPhones con dark mode + true tone
+// extremo. Subimos la saturación para mantener legible en cualquier panel.
+const COUNTRY_FILL_TOUCHED = "#a8d4cf";
 const PIN_BOLG = "#5bc0be"; // aurora — visita con BØLG visible
 const PIN_NO_BOLG = "#5a5754"; // gris más oscuro — visita sin BØLG
 const PIN_STROKE = "#0a0a0a"; // borde oscuro para legibilidad sobre el mist
@@ -171,7 +174,7 @@ export const WorldMap = memo(function WorldMap({
               const isTouched = alpha2 && touchedCountries.has(alpha2);
               const isInteractive = !!alpha2;
               const baseFill = isTouched ? COUNTRY_FILL_TOUCHED : COUNTRY_FILL;
-              const hoverFill = isTouched ? "#b6cdca" : "#cfcabf";
+              const hoverFill = isTouched ? "#8cc0bb" : "#cfcabf";
               return (
                 <Geography
                   key={geo.rsmKey}
@@ -195,7 +198,7 @@ export const WorldMap = memo(function WorldMap({
                       cursor: isInteractive ? "pointer" : "default",
                     },
                     pressed: {
-                      fill: isTouched ? "#a8c0bd" : "#c4bfb3",
+                      fill: isTouched ? "#7eb3ad" : "#c4bfb3",
                       stroke: "#0a0a0a",
                       strokeWidth: 0.6,
                       outline: "none",

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { PencilLine, User } from "lucide-react";
+import { ArrowRight, PencilLine, Plus, User } from "lucide-react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BolgWordmark } from "@/components/bolg-wordmark";
@@ -106,6 +106,39 @@ export default async function DashboardPage() {
       </header>
 
       <main className="flex flex-1 flex-col gap-10 px-6 pb-24 pt-6 sm:gap-12 sm:pt-8 md:px-10">
+        {/* CTAs principales — siempre arriba del todo. Ver el atlas + subir
+            viaje son los 2 caminos que el usuario quiere tomar al volver. */}
+        <section className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/"
+            className="group flex flex-1 items-center justify-between gap-3 border-2 border-foreground bg-foreground px-5 py-4 text-background transition-colors hover:bg-foreground/90"
+          >
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[9px] uppercase tracking-[0.32em] opacity-70">
+                Mapa global
+              </span>
+              <span className="font-display text-base font-black leading-none tracking-tight md:text-lg">
+                Ver el Atlas
+              </span>
+            </span>
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+          <Link
+            href="/trip/new"
+            className="group flex flex-1 items-center justify-between gap-3 border-2 border-foreground/70 bg-card px-5 py-4 transition-colors hover:border-foreground hover:bg-foreground/[0.04]"
+          >
+            <span className="flex flex-col gap-0.5">
+              <span className="text-[9px] uppercase tracking-[0.32em] text-foreground/55">
+                Sumar km
+              </span>
+              <span className="font-display text-base font-black leading-none tracking-tight md:text-lg">
+                Cargar viaje
+              </span>
+            </span>
+            <Plus className="h-4 w-4 transition-transform group-hover:rotate-90" />
+          </Link>
+        </section>
+
         <section className="flex flex-col gap-3">
           <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/40">
             Bienvenido
