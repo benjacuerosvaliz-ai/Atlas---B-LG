@@ -79,7 +79,7 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
 
           <Field
             label="Nombre de usuario"
-            hint="Es tu @handle — lo que va en tu URL (atlas.bolg.cl/u/tu_handle). Solo minúsculas, números y guión bajo, sin espacios."
+            hint="En minúscula, sin espacios."
             required
           >
             <input
