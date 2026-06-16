@@ -111,6 +111,7 @@ export function AtlasClient(props: Props) {
         lat: c.latitude,
         lng: c.longitude,
         name: c.name,
+        countryCode: c.countryCode,
         bolgVisible: c.bolgVisible,
         conquerorUsername: c.conquerorUsername,
       })),
@@ -258,7 +259,9 @@ export function AtlasClient(props: Props) {
           {/* KPIs with X/Y fractions */}
           <div className="grid grid-cols-4 gap-2 px-4 py-3 md:gap-4 md:px-5 md:py-4" data-tour="kpis">
             <Kpi value={kpis.totalKm} label="Km" />
-            <Kpi value={kpis.citiesVisited} total={totals.cities} label="Ciudades" />
+            {/* Ciudades sin denominador — no hay un "total mundial" sensato.
+                Solo es un contador de momentum. */}
+            <Kpi value={kpis.citiesVisited} label="Ciudades" />
             <Kpi value={kpis.countriesRecorridos} total={totals.countries} label="Países" />
             <Kpi value={kpis.continentsConocidos} total={totals.continents} label="Continentes" />
           </div>

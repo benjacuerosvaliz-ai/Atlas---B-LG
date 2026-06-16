@@ -31,6 +31,7 @@ export type CityPin = {
   lat: number;
   lng: number;
   name: string;
+  countryCode: string; // alpha-2 lowercase, para tintar el país de fondo
   bolgVisible: boolean;
   conquerorUsername: string | null;
 };
@@ -96,12 +97,16 @@ const NUMERIC_TO_ALPHA2: Record<string, string> = {
   "887": "ye", "894": "zm",
 };
 
-// Paleta BØLG. Todos los países usan el mist neutro (cream/mist). La
-// conquista vive en los pins, no en el fill del país.
-const COUNTRY_FILL = "#dcd8d0"; // mist
+// Paleta BØLG. Los países no-visitados usan el mist neutro. Los países
+// CON ciudades visitadas reciben un tinte sutil (no es "el país entero
+// conquistado" — solo un hint visual de que ese territorio está tocado).
+const COUNTRY_FILL = "#dcd8d0"; // mist — país sin actividad
+const COUNTRY_FILL_TOUCHED = "#c5d6d3"; // mist con tinte aurora suave — al menos 1 ciudad visitada
 const PIN_BOLG = "#5bc0be"; // aurora — visita con BØLG visible
-const PIN_NO_BOLG = "#7a7770"; // mist oscuro — visita sin BØLG
-const PIN_STROKE = "#1a1714"; // borde oscuro para legibilidad sobre el mist
+const PIN_NO_BOLG = "#5a5754"; // gris más oscuro — visita sin BØLG
+const PIN_STROKE = "#0a0a0a"; // borde oscuro para legibilidad sobre el mist
+const HALO_BOLG = "#5bc0be"; // halo aurora
+const HALO_NO_BOLG = "#5a5754";
 
 export const WorldMap = memo(function WorldMap({
   cityPins,
@@ -110,8 +115,17 @@ export const WorldMap = memo(function WorldMap({
   onCityClick,
   selectedCountry,
 }: WorldMapProps) {
-  // Memoize so repeated renders don't reconstruct the pin list inline.
   const pins = useMemo(() => cityPins, [cityPins]);
+  // Set de países con al menos 1 ciudad visitada — alimentamos el tinte
+  // suave de Geography para dar la sensación de "territorio tocado" sin
+  // pintar todo el país.
+  const touchedCountries = useMemo(() => {
+    const s = new Set<string>();
+    for (const p of cityPins) {
+      if (p.countryCode) s.add(p.countryCode.toLowerCase());
+    }
+    return s;
+  }, [cityPins]);
 
   return (
     <ComposableMap
@@ -134,7 +148,10 @@ export const WorldMap = memo(function WorldMap({
                 NUMERIC_TO_ALPHA2[numeric.padStart(3, "0")] ??
                 null;
               const isSelected = alpha2 && alpha2 === selectedCountry;
+              const isTouched = alpha2 && touchedCountries.has(alpha2);
               const isInteractive = !!alpha2;
+              const baseFill = isTouched ? COUNTRY_FILL_TOUCHED : COUNTRY_FILL;
+              const hoverFill = isTouched ? "#b6cdca" : "#cfcabf";
               return (
                 <Geography
                   key={geo.rsmKey}
@@ -144,22 +161,22 @@ export const WorldMap = memo(function WorldMap({
                   }}
                   style={{
                     default: {
-                      fill: COUNTRY_FILL,
-                      stroke: isSelected ? "#1a1714" : "#f4f1ea",
+                      fill: baseFill,
+                      stroke: isSelected ? "#0a0a0a" : "#f4f1ea",
                       strokeWidth: isSelected ? 1.2 : 0.4,
                       outline: "none",
                       cursor: isInteractive ? "pointer" : "default",
                     },
                     hover: {
-                      fill: "#cfcabf",
-                      stroke: "#1a1714",
+                      fill: hoverFill,
+                      stroke: "#0a0a0a",
                       strokeWidth: 0.6,
                       outline: "none",
                       cursor: isInteractive ? "pointer" : "default",
                     },
                     pressed: {
-                      fill: "#c4bfb3",
-                      stroke: "#1a1714",
+                      fill: isTouched ? "#a8c0bd" : "#c4bfb3",
+                      stroke: "#0a0a0a",
                       strokeWidth: 0.6,
                       outline: "none",
                     },
@@ -172,8 +189,12 @@ export const WorldMap = memo(function WorldMap({
 
         {pins.map((pin) => {
           const isActive = pin.cityId === selectedCityId;
-          const radius = isActive ? 6 : 4;
+          const innerR = isActive ? 6 : 4.5;
+          const haloR = isActive ? 14 : 11;
           const fill = pin.bolgVisible ? PIN_BOLG : PIN_NO_BOLG;
+          const haloFill = pin.bolgVisible ? HALO_BOLG : HALO_NO_BOLG;
+          // Solo los pins BØLG pulsan — diferenciación visual.
+          const pulses = pin.bolgVisible;
           return (
             <Marker
               key={pin.cityId}
@@ -190,13 +211,40 @@ export const WorldMap = memo(function WorldMap({
                 pressed: { cursor: "pointer", outline: "none" },
               }}
             >
+              {/* Halo exterior — siempre, da peso visual y sensación de
+                  territorio. Los BØLG pulsan para destacar aún más. */}
               <circle
-                r={radius}
+                r={haloR}
+                fill={haloFill}
+                fillOpacity={0.18}
+                stroke="none"
+              >
+                {pulses && (
+                  <>
+                    <animate
+                      attributeName="r"
+                      values={`${haloR};${haloR + 6};${haloR}`}
+                      dur="2.4s"
+                      repeatCount="indefinite"
+                    />
+                    <animate
+                      attributeName="fill-opacity"
+                      values="0.22;0.06;0.22"
+                      dur="2.4s"
+                      repeatCount="indefinite"
+                    />
+                  </>
+                )}
+              </circle>
+              {/* Pin interior — el punto sólido que el usuario "ve" como
+                  la conquista. */}
+              <circle
+                r={innerR}
                 fill={fill}
                 stroke={PIN_STROKE}
-                strokeWidth={isActive ? 1.4 : 1}
+                strokeWidth={isActive ? 1.6 : 1.2}
                 style={{
-                  transition: "r 120ms ease, stroke-width 120ms ease",
+                  transition: "r 140ms ease, stroke-width 140ms ease",
                 }}
               >
                 <title>{pin.name}</title>
