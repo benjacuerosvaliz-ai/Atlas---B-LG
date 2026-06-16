@@ -61,7 +61,7 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
 
           <Field
             label="Nombre"
-            hint="Tu nombre como quieres aparecer."
+            hint="Tu nombre completo como quieres aparecer en tu perfil. Espacios, tildes y mayúsculas OK."
             required
           >
             <input
@@ -72,14 +72,14 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
               maxLength={80}
               defaultValue={initialDisplayName}
               autoComplete="name"
-              placeholder="Benja Cueros Valiz"
+              placeholder="Juan Pérez"
               className={inputCls}
             />
           </Field>
 
           <Field
             label="Nombre de usuario"
-            hint="Sin espacios. Solo minúsculas, números y guión bajo."
+            hint="Es tu @handle — lo que va en tu URL (atlas.bolg.cl/u/tu_handle). Solo minúsculas, números y guión bajo, sin espacios."
             required
           >
             <input
@@ -90,7 +90,7 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
               maxLength={30}
               pattern="^[a-z0-9_]+$"
               autoComplete="username"
-              placeholder="benja"
+              placeholder="juanperez"
               autoFocus
               className={inputCls}
             />
