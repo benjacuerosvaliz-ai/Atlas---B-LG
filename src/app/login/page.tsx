@@ -10,16 +10,12 @@ export const metadata: Metadata = {
 };
 
 type Props = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; detail?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: Props) {
-  const { error } = await searchParams;
-  // Best-effort plain-Spanish translation for the most common Supabase
-  // verifyOtp errors. Everything else falls through to the raw message.
-  const friendlyError = error
-    ? translateAuthError(decodeURIComponent(error))
-    : null;
+  const { error, detail } = await searchParams;
+  const friendlyError = error ? translateAuthError(error, detail) : null;
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -61,19 +57,23 @@ export default async function LoginPage({ searchParams }: Props) {
   );
 }
 
-function translateAuthError(raw: string): string {
-  const lower = raw.toLowerCase();
-  if (lower.includes("missing_token") || lower.includes("missing token")) {
-    return "El enlace que abriste no trae token. Pide uno nuevo.";
+function translateAuthError(reason: string, detail?: string): string {
+  switch (reason) {
+    case "missing":
+      return "El enlace que abriste viene incompleto (sin token). Pide uno nuevo abajo.";
+    case "expired_or_used":
+      // Supabase no distingue estos 2 casos — el token se invalida apenas se
+      // consume, así que después de usarse luce idéntico a uno expirado.
+      // Se lo decimos honesto al usuario.
+      return "Este link ya no sirve — o ya lo usaste, o pasó más de una hora desde que lo pediste. Cualquiera de los dos, la solución es pedir uno nuevo abajo.";
+    case "flow_mismatch":
+      return "Este enlace usa un flujo antiguo de auth. Pide uno nuevo desde acá — los nuevos correos ya están en el flujo correcto.";
+    case "other":
+      return detail
+        ? `No pudimos completar tu acceso: ${decodeURIComponent(detail)}`
+        : "No pudimos completar tu acceso. Pide un link nuevo.";
+    default:
+      // Backward compat: si llega un error string suelto, lo mostramos.
+      return `No pudimos completar tu acceso: ${decodeURIComponent(reason)}`;
   }
-  if (lower.includes("expired")) {
-    return "El enlace expiró. Pide uno nuevo escribiendo tu correo abajo.";
-  }
-  if (lower.includes("invalid") || lower.includes("not found")) {
-    return "Ese enlace ya fue usado o no es válido. Pide uno nuevo.";
-  }
-  if (lower.includes("code challenge") || lower.includes("verifier")) {
-    return "Este enlace usa un flujo antiguo. Pedile uno nuevo desde acá — los nuevos correos ya están en el flujo correcto.";
-  }
-  return `No pudimos completar tu acceso: ${raw}`;
 }
