@@ -13,6 +13,21 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 type Ctx = { params: Promise<{ token: string }> };
 
+/**
+ * Escape HTML special characters so user-controlled data (display_name,
+ * username, email, etc.) cannot inject markup or script when interpolated
+ * into the admin HTML view below.
+ */
+function escapeHtml(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 export async function GET(_req: Request, ctx: Ctx) {
   const { token } = await ctx.params;
   const admin = createAdminClient();
@@ -40,6 +55,20 @@ export async function GET(_req: Request, ctx: Ctx) {
   const w = prize.users as unknown as WinnerInfo;
 
   const status = String(prize.status);
+  const statusSafe = escapeHtml(status);
+  const statusLabel =
+    status === "notified" ? "Ya notificado" : "Pendiente de confirmar";
+  const monthSafe = escapeHtml(String(prize.prize_month).slice(0, 7));
+  const displayLine = w?.display_name ?? w?.username ?? "—";
+  const winnerLineSafe = `${escapeHtml(displayLine)} (@${escapeHtml(
+    w?.username ?? "?",
+  )})`;
+  const emailSafe = escapeHtml(w?.email ?? "—");
+  const continentsSafe = escapeHtml(prize.continents_count);
+  const countriesSafe = escapeHtml(prize.countries_count);
+  const citiesSafe = escapeHtml(prize.cities_count);
+  const notifiedAtSafe = escapeHtml(prize.notified_at ?? "");
+
   const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -72,20 +101,20 @@ export async function GET(_req: Request, ctx: Ctx) {
 <body>
   <main>
     <h1>🏆 Premio mensual</h1>
-    <span class="pill ${status}">${status === "notified" ? "Ya notificado" : "Pendiente de confirmar"}</span>
+    <span class="pill ${statusSafe}">${escapeHtml(statusLabel)}</span>
 
     <dl>
-      <dt>Mes</dt><dd>${String(prize.prize_month).slice(0, 7)}</dd>
-      <dt>Ganador</dt><dd>${w?.display_name ?? w?.username ?? "—"} (@${w?.username ?? "?"})</dd>
-      <dt>Email del ganador</dt><dd>${w?.email ?? "—"}</dd>
-      <dt>Continentes</dt><dd>${prize.continents_count}</dd>
-      <dt>Países</dt><dd>${prize.countries_count}</dd>
-      <dt>Ciudades</dt><dd>${prize.cities_count}</dd>
+      <dt>Mes</dt><dd>${monthSafe}</dd>
+      <dt>Ganador</dt><dd>${winnerLineSafe}</dd>
+      <dt>Email del ganador</dt><dd>${emailSafe}</dd>
+      <dt>Continentes</dt><dd>${continentsSafe}</dd>
+      <dt>Países</dt><dd>${countriesSafe}</dd>
+      <dt>Ciudades</dt><dd>${citiesSafe}</dd>
     </dl>
 
     ${
       status === "notified"
-        ? `<div class="done">Ya enviaste el mail al ganador el ${prize.notified_at}.</div>`
+        ? `<div class="done">Ya enviaste el mail al ganador el ${notifiedAtSafe}.</div>`
         : `<form method="post" action="">
              <button type="submit">Confirmar y notificar al ganador →</button>
            </form>`
@@ -127,38 +156,88 @@ export async function POST(_req: Request, ctx: Ctx) {
   }
 
   const resendKey = process.env.RESEND_API_KEY;
-  if (resendKey) {
-    const resend = new Resend(resendKey);
-    const month = String(prize.prize_month).slice(0, 7);
-    await resend.emails.send({
-      from: "atlas@bolg.cl",
-      to: w.email,
-      subject: `🏆 Eres el conquistador BØLG de ${month}`,
-      text: [
-        `Hola ${w.display_name ?? w.username},`,
-        ``,
-        `Felicitaciones — eres el conquistador BØLG del mes ${month}.`,
-        `Tu premio:`,
-        `  - Un parche personalizado`,
-        `  - $100.000 CLP en producto BØLG`,
-        `  - Llavero + charms de tus países conquistados`,
-        `  - Mención en mailing y redes sociales BØLG`,
-        ``,
-        `Te contactaremos pronto para coordinar el envío.`,
-        ``,
-        `Sigue conquistando.`,
-        `— Equipo BØLG`,
-      ].join("\n"),
-    });
+
+  // No RESEND key configured: we cannot actually deliver the mail. Mark
+  // the request as failed and keep the prize in 'calculated' so the admin
+  // can retry once the env var is set.
+  if (!resendKey) {
+    return new Response(
+      `<html><body style="font-family:sans-serif;background:#0a0a0a;color:#ff6b6b;padding:64px;text-align:center;">
+         <h1>✗ No se pudo enviar</h1>
+         <p>RESEND_API_KEY no está configurada. El status sigue en "calculated" — intenta de nuevo cuando esté lista.</p>
+       </body></html>`,
+      {
+        status: 500,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      },
+    );
   }
 
-  await admin
+  const resend = new Resend(resendKey);
+  const month = String(prize.prize_month).slice(0, 7);
+  const sendResult = await resend.emails.send({
+    from: "atlas@bolg.cl",
+    to: w.email,
+    subject: `🏆 Eres el conquistador BØLG de ${month}`,
+    text: [
+      `Hola ${w.display_name ?? w.username},`,
+      ``,
+      `Felicitaciones — eres el conquistador BØLG del mes ${month}.`,
+      `Tu premio:`,
+      `  - Un parche personalizado`,
+      `  - $100.000 CLP en producto BØLG`,
+      `  - Llavero + charms de tus países conquistados`,
+      `  - Mención en mailing y redes sociales BØLG`,
+      ``,
+      `Te contactaremos pronto para coordinar el envío.`,
+      ``,
+      `Sigue conquistando.`,
+      `— Equipo BØLG`,
+    ].join("\n"),
+  });
+
+  // Only mark as notified if Resend confirmed the send. Otherwise leave
+  // the prize in 'calculated' so the admin can retry from the same link.
+  if (sendResult.error || !sendResult.data?.id) {
+    const errMsg = escapeHtml(
+      sendResult.error?.message ?? "Resend no devolvió data.id",
+    );
+    return new Response(
+      `<html><body style="font-family:sans-serif;background:#0a0a0a;color:#ff6b6b;padding:64px;text-align:center;">
+         <h1>✗ Falló el envío</h1>
+         <p>${errMsg}</p>
+         <p>El status sigue en "calculated". Puedes recargar la página y reintentar.</p>
+       </body></html>`,
+      {
+        status: 502,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      },
+    );
+  }
+
+  const { error: updateErr } = await admin
     .from("monthly_prizes")
     .update({ status: "notified", notified_at: new Date().toISOString() })
     .eq("id", prize.id);
 
+  if (updateErr) {
+    console.error("[monthly-prize] update after send", updateErr);
+    // The mail did go out — surface this clearly so the admin doesn't
+    // resend by clicking the link a second time.
+    return new Response(
+      `<html><body style="font-family:sans-serif;background:#0a0a0a;color:#d4a373;padding:64px;text-align:center;">
+         <h1>⚠ Mail enviado, pero no se pudo actualizar el status</h1>
+         <p>Cambia el status a "notified" manualmente en la base. NO vuelvas a clickear este link.</p>
+       </body></html>`,
+      {
+        status: 500,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      },
+    );
+  }
+
   return new Response(
-    `<html><body style="font-family:sans-serif;background:#0a0a0a;color:#5bc0be;padding:64px;text-align:center;"><h1>✓ Mail enviado a @${w.username}</h1><p>El status ahora es "notified". Puedes cerrar esta ventana.</p></body></html>`,
+    `<html><body style="font-family:sans-serif;background:#0a0a0a;color:#5bc0be;padding:64px;text-align:center;"><h1>✓ Mail enviado a @${escapeHtml(w.username ?? "")}</h1><p>El status ahora es "notified". Puedes cerrar esta ventana.</p></body></html>`,
     { headers: { "content-type": "text/html; charset=utf-8" } },
   );
 }

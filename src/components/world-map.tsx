@@ -5,16 +5,18 @@ import {
   ComposableMap,
   Geographies,
   Geography,
+  Marker,
   ZoomableGroup,
 } from "react-simple-maps";
 
 /**
- * Mapa-mundi 2D para el Atlas v2. Cada país se pinta según el `status`
- * de conquista que pase el caller:
- *   - "complete" → tinte fuerte (foreground)
- *   - "partial"  → tinte medio
- *   - "none"     → tinte neutro
- * Click sobre un país dispara `onCountryClick(alpha2 lowercase)`.
+ * Mapa-mundi 2D para el Atlas v2 — versión "pins por ciudad".
+ *
+ * Cambio de diseño (Sesión post-v2): antes pintábamos países enteros
+ * según su status de conquista, pero eso engaña (alguien va a Filadelfia
+ * y todo USA queda verde). Ahora todos los países quedan en mist crema
+ * neutro y la conquista se dibuja como pins (círculos) en cada lat/lng
+ * visitado. Aurora = BØLG visible, mist oscuro = visita sin BØLG.
  *
  * El topojson se carga desde JSDelivr (~30KB) — react-simple-maps lo
  * fetchea client-side la primera vez. Para offline o producción ultra
@@ -24,14 +26,26 @@ import {
 const TOPOJSON_URL =
   "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-export type CountryStatus = "complete" | "partial" | "none";
+export type CityPin = {
+  cityId: string;
+  lat: number;
+  lng: number;
+  name: string;
+  bolgVisible: boolean;
+  conquerorUsername: string | null;
+};
 
 export type WorldMapProps = {
-  /** countryCode (alpha-2 lowercase) → estado. Países no listados son "none". */
-  statusByCountry: Record<string, CountryStatus>;
-  /** Si está, ese país se dibuja con un anillo de selección. */
-  selectedCountry?: string | null;
+  /** Pins por cada ciudad conquistada en la comunidad. */
+  cityPins: CityPin[];
+  /** Pin actualmente seleccionado (se dibuja más grande). */
+  selectedCityId?: string | null;
+  /** Click sobre un país (alpha-2 lowercase). Se usa para el drill-down. */
   onCountryClick?: (countryCode: string) => void;
+  /** Click sobre un pin de ciudad. */
+  onCityClick?: (cityId: string) => void;
+  /** País actualmente seleccionado (se resalta con stroke). */
+  selectedCountry?: string | null;
 };
 
 // Mapa numérico ISO 3166-1 numeric (lo que trae world-atlas/countries-110m)
@@ -82,22 +96,22 @@ const NUMERIC_TO_ALPHA2: Record<string, string> = {
   "887": "ye", "894": "zm",
 };
 
-const COLOR_FOR_STATUS: Record<CountryStatus, string> = {
-  // Paleta BØLG. "none" es el color de mapa por defecto (cream/mist) que
-  // matchea con la estética del Atlas. "complete" usa aurora para que pop
-  // contra el fondo oscuro de la página. "partial" es un tinte umber tibio.
-  complete: "#5bc0be", // aurora — pop, eye-catching
-  partial: "#d4a373", // umber — warm tan medio
-  none: "#dcd8d0", // mist — neutro
-};
+// Paleta BØLG. Todos los países usan el mist neutro (cream/mist). La
+// conquista vive en los pins, no en el fill del país.
+const COUNTRY_FILL = "#dcd8d0"; // mist
+const PIN_BOLG = "#5bc0be"; // aurora — visita con BØLG visible
+const PIN_NO_BOLG = "#7a7770"; // mist oscuro — visita sin BØLG
+const PIN_STROKE = "#1a1714"; // borde oscuro para legibilidad sobre el mist
 
 export const WorldMap = memo(function WorldMap({
-  statusByCountry,
-  selectedCountry,
+  cityPins,
+  selectedCityId,
   onCountryClick,
+  onCityClick,
+  selectedCountry,
 }: WorldMapProps) {
-  // Memoize so repeated renders don't reconstruct the lookup map.
-  const lookup = useMemo(() => statusByCountry, [statusByCountry]);
+  // Memoize so repeated renders don't reconstruct the pin list inline.
+  const pins = useMemo(() => cityPins, [cityPins]);
 
   return (
     <ComposableMap
@@ -119,11 +133,8 @@ export const WorldMap = memo(function WorldMap({
                 NUMERIC_TO_ALPHA2[numeric] ??
                 NUMERIC_TO_ALPHA2[numeric.padStart(3, "0")] ??
                 null;
-              const status: CountryStatus = alpha2
-                ? lookup[alpha2] ?? "none"
-                : "none";
               const isSelected = alpha2 && alpha2 === selectedCountry;
-              const isInteractive = alpha2 && status !== "none";
+              const isInteractive = !!alpha2;
               return (
                 <Geography
                   key={geo.rsmKey}
@@ -133,24 +144,22 @@ export const WorldMap = memo(function WorldMap({
                   }}
                   style={{
                     default: {
-                      fill: COLOR_FOR_STATUS[status],
-                      stroke: "#f4f1ea",
-                      strokeWidth: isSelected ? 1.4 : 0.4,
+                      fill: COUNTRY_FILL,
+                      stroke: isSelected ? "#1a1714" : "#f4f1ea",
+                      strokeWidth: isSelected ? 1.2 : 0.4,
                       outline: "none",
                       cursor: isInteractive ? "pointer" : "default",
                     },
                     hover: {
-                      fill: isInteractive
-                        ? "#5bc0be"
-                        : COLOR_FOR_STATUS[status],
-                      stroke: "#f4f1ea",
+                      fill: "#cfcabf",
+                      stroke: "#1a1714",
                       strokeWidth: 0.6,
                       outline: "none",
                       cursor: isInteractive ? "pointer" : "default",
                     },
                     pressed: {
-                      fill: "#5bc0be",
-                      stroke: "#f4f1ea",
+                      fill: "#c4bfb3",
+                      stroke: "#1a1714",
                       strokeWidth: 0.6,
                       outline: "none",
                     },
@@ -160,6 +169,41 @@ export const WorldMap = memo(function WorldMap({
             })
           }
         </Geographies>
+
+        {pins.map((pin) => {
+          const isActive = pin.cityId === selectedCityId;
+          const radius = isActive ? 6 : 4;
+          const fill = pin.bolgVisible ? PIN_BOLG : PIN_NO_BOLG;
+          return (
+            <Marker
+              key={pin.cityId}
+              coordinates={[pin.lng, pin.lat]}
+              onClick={(event) => {
+                // Evita que el click llegue al país de abajo y abra el
+                // CountryPanel a la vez que el CityPanel.
+                event.stopPropagation();
+                if (onCityClick) onCityClick(pin.cityId);
+              }}
+              style={{
+                default: { cursor: "pointer", outline: "none" },
+                hover: { cursor: "pointer", outline: "none" },
+                pressed: { cursor: "pointer", outline: "none" },
+              }}
+            >
+              <circle
+                r={radius}
+                fill={fill}
+                stroke={PIN_STROKE}
+                strokeWidth={isActive ? 1.4 : 1}
+                style={{
+                  transition: "r 120ms ease, stroke-width 120ms ease",
+                }}
+              >
+                <title>{pin.name}</title>
+              </circle>
+            </Marker>
+          );
+        })}
       </ZoomableGroup>
     </ComposableMap>
   );

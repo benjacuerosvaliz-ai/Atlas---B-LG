@@ -42,6 +42,18 @@ export type ActivityEvent = {
   at: string; // ISO
 };
 
+export type ConqueredCity = {
+  id: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  countryCode: string;
+  bolgVisible: boolean;
+  conquerorUsername: string | null;
+  conquerorDisplayName: string | null;
+  conquerorAvatarUrl: string | null;
+};
+
 export type Totals = {
   cities: number;     // ciudades registradas en la comunidad (denominador dinámico)
   countries: number;  // países que reconocemos en lib/geo
@@ -57,6 +69,7 @@ export async function loadAtlasV2Data(): Promise<{
   statusByCountryPersonal: Record<string, CountryStatus> | null;
   topTravelers: TopTraveler[];
   recentActivity: ActivityEvent[];
+  conqueredCities: ConqueredCity[];
 }> {
   const supabase = await createClient();
   const {
@@ -71,6 +84,7 @@ export async function loadAtlasV2Data(): Promise<{
     { count: totalCities },
     { data: topRaw },
     { data: activityRaw },
+    { data: conquerorsRaw },
     personalUsername,
   ] = await Promise.all([
     supabase.from("trips").select("distance_km").eq("visibility", "public"),
@@ -91,6 +105,12 @@ export async function loadAtlasV2Data(): Promise<{
       )
       .order("uploaded_at", { ascending: false })
       .limit(12),
+    // Conquistadores actuales por ciudad — base para los pins del mapa.
+    // (cities/users se resuelven aparte porque city_conquerors es una view
+    // y PostgREST no detecta FKs sobre views.)
+    supabase
+      .from("city_conquerors")
+      .select("city_id, conqueror_id, bolg_visible"),
     user
       ? supabase
           .from("users")
@@ -239,6 +259,93 @@ export async function loadAtlasV2Data(): Promise<{
       at: r.uploaded_at,
     }));
 
+  // Resolver pins por ciudad: city_conquerors es una view, así que
+  // hidratamos cities y users con dos queries en paralelo por id.
+  type RawConqueror = {
+    city_id: string;
+    conqueror_id: string;
+    bolg_visible: boolean | null;
+  };
+  const conquerors: RawConqueror[] =
+    ((conquerorsRaw ?? []) as unknown as RawConqueror[]).filter(
+      (r) => r.city_id && r.conqueror_id,
+    );
+
+  let conqueredCities: ConqueredCity[] = [];
+  if (conquerors.length > 0) {
+    const cityIds = Array.from(new Set(conquerors.map((r) => r.city_id)));
+    const userIds = Array.from(new Set(conquerors.map((r) => r.conqueror_id)));
+
+    const [
+      { data: cityRows },
+      { data: userRows },
+    ] = await Promise.all([
+      supabase
+        .from("cities")
+        .select("id, name, country_code, latitude, longitude")
+        .in("id", cityIds),
+      supabase
+        .from("users")
+        .select("id, username, display_name, avatar_url")
+        .in("id", userIds),
+    ]);
+
+    type CityRow = {
+      id: string;
+      name: string | null;
+      country_code: string | null;
+      latitude: number | string | null;
+      longitude: number | string | null;
+    };
+    type UserRow = {
+      id: string;
+      username: string | null;
+      display_name: string | null;
+      avatar_url: string | null;
+    };
+    const cityById = new Map<string, CityRow>();
+    for (const c of ((cityRows ?? []) as unknown as CityRow[])) {
+      cityById.set(c.id, c);
+    }
+    const userById = new Map<string, UserRow>();
+    for (const u of ((userRows ?? []) as unknown as UserRow[])) {
+      userById.set(u.id, u);
+    }
+
+    conqueredCities = conquerors
+      .map((row) => {
+        const city = cityById.get(row.city_id);
+        const userRow = userById.get(row.conqueror_id);
+        if (!city || !city.name || !city.country_code) return null;
+        const lat = typeof city.latitude === "string"
+          ? Number.parseFloat(city.latitude)
+          : city.latitude;
+        const lng = typeof city.longitude === "string"
+          ? Number.parseFloat(city.longitude)
+          : city.longitude;
+        if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) {
+          return null;
+        }
+        const username = userRow?.username ?? null;
+        // Ocultamos usernames provisionales del UI público (los pins se
+        // siguen mostrando, pero sin nombre del conquistador).
+        const cleanUsername =
+          username && !PROVISIONAL_USERNAME_RE.test(username) ? username : null;
+        return {
+          id: city.id,
+          name: city.name,
+          latitude: lat,
+          longitude: lng,
+          countryCode: city.country_code,
+          bolgVisible: !!row.bolg_visible,
+          conquerorUsername: cleanUsername,
+          conquerorDisplayName: userRow?.display_name ?? null,
+          conquerorAvatarUrl: userRow?.avatar_url ?? null,
+        } satisfies ConqueredCity;
+      })
+      .filter((c): c is ConqueredCity => c !== null);
+  }
+
   return {
     authedUsername: personalUsername,
     globalKpis,
@@ -248,5 +355,6 @@ export async function loadAtlasV2Data(): Promise<{
     statusByCountryPersonal,
     topTravelers,
     recentActivity,
+    conqueredCities,
   };
 }

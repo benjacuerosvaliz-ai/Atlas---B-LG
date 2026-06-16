@@ -6,7 +6,7 @@ import { OnboardingForm, type ModelLite } from "./OnboardingForm";
 
 export const metadata: Metadata = {
   title: "Bienvenido al Atlas",
-  description: "Configurá tu perfil en BØLG Atlas en 60 segundos.",
+  description: "Configura tu perfil en BØLG Atlas en 60 segundos.",
 };
 
 // Provisional usernames look like `user_a1b2c3d4` (set by the auth trigger).

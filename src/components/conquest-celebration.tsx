@@ -37,18 +37,25 @@ export function ConquestCelebration(props: ConquestCelebrationProps) {
     if (!shouldShow) return;
     setOpen(true);
     document.body.style.overflow = "hidden";
-    // Count-up animation
+    // Count-up animation. Si distanceKm es 0 no animamos (el stat se oculta).
     const target = props.distanceKm;
-    const start = performance.now();
-    const dur = 1100;
-    const step = (now: number) => {
-      const t = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setAnimatedKm(Math.round(target * eased));
-      if (t < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
+    let canceled = false;
+    let rafId = 0;
+    if (target > 0) {
+      const start = performance.now();
+      const dur = 1100;
+      const step = (now: number) => {
+        if (canceled) return;
+        const t = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - t, 3);
+        setAnimatedKm(Math.round(target * eased));
+        if (t < 1) rafId = requestAnimationFrame(step);
+      };
+      rafId = requestAnimationFrame(step);
+    }
     return () => {
+      canceled = true;
+      if (rafId) cancelAnimationFrame(rafId);
       document.body.style.overflow = "";
     };
   }, [shouldShow, props.distanceKm]);
@@ -124,13 +131,23 @@ export function ConquestCelebration(props: ConquestCelebrationProps) {
           </div>
         )}
 
-        {/* Stats row */}
-        <div className="grid grid-cols-3 gap-4 border-y border-border py-5">
-          <Stat
-            value={animatedKm.toLocaleString("es-CL")}
-            suffix="km"
-            label="Sumados"
-          />
+        {/* Stats row. Si la distancia es 0 (origen == destino) mostramos
+            un stat "Conquista local" en vez de "0 km Sumados". */}
+        <div
+          className={cn(
+            "grid gap-4 border-y border-border py-5",
+            "grid-cols-3",
+          )}
+        >
+          {props.distanceKm > 0 ? (
+            <Stat
+              value={animatedKm.toLocaleString("es-CL")}
+              suffix="km"
+              label="Sumados"
+            />
+          ) : (
+            <Stat value="Local" label="Conquista" />
+          )}
           <Stat
             value={`+${props.newCitiesCount}`}
             label={props.newCitiesCount === 1 ? "Ciudad nueva" : "Ciudades nuevas"}

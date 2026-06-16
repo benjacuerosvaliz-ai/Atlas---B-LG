@@ -98,36 +98,63 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
   const tripId = inserted.id as string;
 
   // --- Paso 3: city_visits ---
+  // Si origen == destino (misma ciudad) insertamos UNA sola visita, no dos
+  // duplicadas. Comparamos por id local — ya están deduped por mapbox_id.
+  const sameCity = originCityRow.id === destCityRow.id;
   const visitedDate = startAt;
-  const { error: visitsErr } = await supabase.from("city_visits").insert([
-    {
-      user_id: user.id,
-      city_id: originCityRow.id,
-      trip_id: tripId,
-      bolg_visible: bolgVisible,
-      visited_at: visitedDate,
-    },
-    {
-      user_id: user.id,
-      city_id: destCityRow.id,
-      trip_id: tripId,
-      bolg_visible: bolgVisible,
-      visited_at: visitedDate,
-    },
-  ]);
-  if (visitsErr) console.error("[createTrip] city_visits insert", visitsErr);
+  const visitsPayload = sameCity
+    ? [
+        {
+          user_id: user.id,
+          city_id: originCityRow.id,
+          trip_id: tripId,
+          bolg_visible: bolgVisible,
+          visited_at: visitedDate,
+        },
+      ]
+    : [
+        {
+          user_id: user.id,
+          city_id: originCityRow.id,
+          trip_id: tripId,
+          bolg_visible: bolgVisible,
+          visited_at: visitedDate,
+        },
+        {
+          user_id: user.id,
+          city_id: destCityRow.id,
+          trip_id: tripId,
+          bolg_visible: bolgVisible,
+          visited_at: visitedDate,
+        },
+      ];
+  const { error: visitsErr } = await supabase
+    .from("city_visits")
+    .insert(visitsPayload);
+  if (visitsErr) {
+    console.error("[createTrip] city_visits insert", visitsErr);
+    return { error: visitsErr.message };
+  }
 
   // --- Paso 4: foto ---
+  // Warning, no aborta. Pero si la foto era obligatoria para celebración
+  // y falla, marcamos para suprimir la celebración.
+  let photoFailed = false;
   if (data.photo) {
     const { error: photoErr } = await supabase.from("trip_photos").insert({
       trip_id: tripId,
       url: data.photo.url,
       ordering: 0,
     });
-    if (photoErr) console.error("[createTrip] trip_photos", photoErr);
+    if (photoErr) {
+      console.error("[createTrip] trip_photos", photoErr);
+      photoFailed = true;
+    }
   }
 
   // --- Paso 5: productos reclamados ---
+  // Warning, no aborta. Si falló todo el reclamo, suprimimos la celebración.
+  let claimsFailed = false;
   if (data.claimedModelIds.length > 0) {
     const { error: tripClaimErr } = await supabase
       .from("trip_claimed_models")
@@ -137,8 +164,10 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
           model_id: modelId,
         })),
       );
-    if (tripClaimErr)
+    if (tripClaimErr) {
       console.error("[createTrip] trip_claimed_models", tripClaimErr);
+      claimsFailed = true;
+    }
 
     const { error: collectionErr } = await supabase
       .from("user_claimed_models")
@@ -149,8 +178,10 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
         })),
         { onConflict: "user_id,model_id", ignoreDuplicates: true },
       );
-    if (collectionErr)
+    if (collectionErr) {
       console.error("[createTrip] user_claimed_models", collectionErr);
+      claimsFailed = true;
+    }
   }
 
   revalidatePath("/dashboard");
@@ -174,13 +205,19 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     previousCities.add(v.city_id);
     if (v.cities?.country_code) previousCountries.add(v.cities.country_code);
   }
-  const newCities =
-    (previousCities.has(originCityRow.id) ? 0 : 1) +
-    (previousCities.has(destCityRow.id) ? 0 : 1);
+  // Si origen == destino contamos solo una ciudad nueva (no dos veces la
+  // misma). Lo mismo para país.
+  const newCities = sameCity
+    ? previousCities.has(originCityRow.id)
+      ? 0
+      : 1
+    : (previousCities.has(originCityRow.id) ? 0 : 1) +
+      (previousCities.has(destCityRow.id) ? 0 : 1);
   const newCountriesSet = new Set<string>();
   if (data.originCity.countryCode && !previousCountries.has(data.originCity.countryCode))
     newCountriesSet.add(data.originCity.countryCode);
   if (
+    !sameCity &&
     data.destinationCity.countryCode &&
     !previousCountries.has(data.destinationCity.countryCode)
   )
@@ -199,13 +236,25 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     firstBolg = (priorBolgConquerors ?? 0) === 0;
   }
 
-  const params = new URLSearchParams({
-    conquistado: "1",
-    newCities: String(newCities),
-    newCountries: String(newCountriesSet.size),
-  });
-  if (firstBolg) params.set("firstBolg", "1");
-  redirect(`/t/${tripId}?${params.toString()}`);
+  // Si la foto Y los reclamos fallaron (cuando el usuario los subió),
+  // no mostramos celebración: lo importante para ese flow se perdió.
+  // El viaje en sí quedó guardado.
+  const hadPhotoOrClaims =
+    Boolean(data.photo) || data.claimedModelIds.length > 0;
+  const allExtrasFailed =
+    hadPhotoOrClaims &&
+    (!data.photo || photoFailed) &&
+    (data.claimedModelIds.length === 0 || claimsFailed);
+
+  const params = new URLSearchParams();
+  if (!allExtrasFailed) {
+    params.set("conquistado", "1");
+    params.set("newCities", String(newCities));
+    params.set("newCountries", String(newCountriesSet.size));
+    if (firstBolg) params.set("firstBolg", "1");
+  }
+  const qs = params.toString();
+  redirect(qs ? `/t/${tripId}?${qs}` : `/t/${tripId}`);
 }
 
 /**

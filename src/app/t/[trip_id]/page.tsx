@@ -27,9 +27,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const route = trip.end_place_name
     ? `${trip.start_place_name} → ${trip.end_place_name}`
     : trip.start_place_name;
+  // Fallback: distance_km puede ser null/0 (origen == destino). En ese caso
+  // omitimos los "km" en vez de renderizar "null km".
+  const km =
+    typeof trip.distance_km === "number" && trip.distance_km > 0
+      ? trip.distance_km
+      : null;
+  const description = km ? `${km} km en ${route}.` : `Viaje en ${route}.`;
   return {
     title: trip.title ?? route,
-    description: `${trip.distance_km} km en ${route}.`,
+    description,
   };
 }
 

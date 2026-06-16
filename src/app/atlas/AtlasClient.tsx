@@ -13,6 +13,7 @@ import { CONTINENT_NAMES, COUNTRY_TO_CONTINENT, type ContinentCode } from "@/lib
 import { cn } from "@/lib/utils";
 import type {
   ActivityEvent,
+  ConqueredCity,
   CountryStatus,
   Kpis,
   Totals,
@@ -41,6 +42,7 @@ type Props = {
   statusByCountryPersonal: Record<string, CountryStatus> | null;
   topTravelers: TopTraveler[];
   recentActivity: ActivityEvent[];
+  conqueredCities: ConqueredCity[];
 };
 
 type Mode = "global" | "personal";
@@ -74,10 +76,12 @@ export function AtlasClient(props: Props) {
     statusByCountryPersonal,
     topTravelers,
     recentActivity,
+    conqueredCities,
   } = props;
   const [heroDismissed, setHeroDismissed] = useState(false);
   const [mode, setMode] = useState<Mode>("global");
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
+  const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
 
   // Si el usuario no está autenticado, forzamos modo global.
   const effectiveMode: Mode = authedUsername ? mode : "global";
@@ -99,9 +103,61 @@ export function AtlasClient(props: Props) {
     return out;
   }, [statusByCountry]);
 
+  // Pins: la versión que pasamos al mapa. Mantenemos el shape liviano.
+  const cityPins = useMemo(
+    () =>
+      conqueredCities.map((c) => ({
+        cityId: c.id,
+        lat: c.latitude,
+        lng: c.longitude,
+        name: c.name,
+        bolgVisible: c.bolgVisible,
+        conquerorUsername: c.conquerorUsername,
+      })),
+    [conqueredCities],
+  );
+
+  // Lookup para resolver el CityPanel sin volver a buscar.
+  const cityById = useMemo(() => {
+    const map = new Map<string, ConqueredCity>();
+    for (const c of conqueredCities) map.set(c.id, c);
+    return map;
+  }, [conqueredCities]);
+
+  // Ciudades agrupadas por país — alimenta el CountryPanel.
+  const citiesByCountry = useMemo(() => {
+    const map = new Map<string, ConqueredCity[]>();
+    for (const c of conqueredCities) {
+      const key = c.countryCode.toLowerCase();
+      const arr = map.get(key) ?? [];
+      arr.push(c);
+      map.set(key, arr);
+    }
+    // Orden estable: BØLG primero, luego alfabético por nombre.
+    for (const arr of map.values()) {
+      arr.sort((a, b) => {
+        if (a.bolgVisible !== b.bolgVisible) return a.bolgVisible ? -1 : 1;
+        return a.name.localeCompare(b.name);
+      });
+    }
+    return map;
+  }, [conqueredCities]);
+
   const selectedCountryName = selectedCountry
     ? countryDisplayName(selectedCountry)
     : null;
+
+  const selectedCity = selectedCityId ? cityById.get(selectedCityId) ?? null : null;
+
+  function handleCityClick(cityId: string) {
+    setSelectedCityId((curr) => (curr === cityId ? null : cityId));
+    setSelectedCountry(null);
+  }
+
+  function handleCountryClick(code: string) {
+    setSelectedCountry((curr) => (curr === code ? null : code));
+    setSelectedCityId(null);
+  }
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-background">
@@ -156,9 +212,11 @@ export function AtlasClient(props: Props) {
       {/* Map */}
       <div className="absolute inset-0 z-0" data-tour="map">
         <WorldMap
-          statusByCountry={statusByCountry}
+          cityPins={cityPins}
+          selectedCityId={selectedCityId}
           selectedCountry={selectedCountry}
-          onCountryClick={(c) => setSelectedCountry((curr) => (curr === c ? null : c))}
+          onCountryClick={handleCountryClick}
+          onCityClick={handleCityClick}
         />
       </div>
 
@@ -166,7 +224,7 @@ export function AtlasClient(props: Props) {
       {authedUsername && (
         <Link
           href="/trip/new"
-          className="absolute bottom-[260px] right-4 z-30 flex items-center gap-2 bg-foreground px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-background shadow-lg transition-colors hover:bg-foreground/80 md:bottom-[280px] md:right-8"
+          className="absolute bottom-[200px] right-4 z-30 flex items-center gap-2 bg-foreground px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-background shadow-lg transition-colors hover:bg-foreground/80 sm:bottom-[260px] md:bottom-[280px] md:right-8"
           data-tour="upload"
         >
           <Plus className="h-3 w-3" />
@@ -260,11 +318,7 @@ export function AtlasClient(props: Props) {
                       <button
                         key={c.code}
                         type="button"
-                        onClick={() =>
-                          setSelectedCountry((curr) =>
-                            curr === c.code ? null : c.code,
-                          )
-                        }
+                        onClick={() => handleCountryClick(c.code)}
                         className={cn(
                           "flex shrink-0 items-center gap-1.5 border px-2.5 py-1.5 text-[10px] uppercase tracking-[0.24em] transition-colors",
                           active
@@ -313,10 +367,11 @@ export function AtlasClient(props: Props) {
         </div>
       </div>
 
-      {/* Anonymous hero hook — manifesto card centered on map */}
+      {/* Anonymous hero hook — manifesto card. En mobile va anclado arriba
+          (top-[110px]) para no chocar con el bottom panel; en sm+ va centrado. */}
       {!authedUsername && !heroDismissed && (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center px-4">
-          <div className="pointer-events-auto flex w-full max-w-md flex-col gap-4 border-2 border-foreground bg-card/95 p-6 backdrop-blur-md md:p-8">
+        <div className="pointer-events-none absolute inset-x-0 top-[110px] z-20 flex justify-center px-4 sm:inset-0 sm:top-0 sm:items-center">
+          <div className="pointer-events-auto flex w-full max-w-md flex-col gap-3 border-2 border-foreground bg-card/95 p-4 backdrop-blur-md sm:gap-4 sm:p-6 md:p-8">
             <div className="flex items-start justify-between gap-3">
               <span className="text-[10px] uppercase tracking-[0.36em] text-aurora">
                 Atlas BØLG
@@ -330,10 +385,10 @@ export function AtlasClient(props: Props) {
                 <X className="h-4 w-4" />
               </button>
             </div>
-            <h2 className="font-display text-3xl font-black leading-[1.02] tracking-tight md:text-4xl">
+            <h2 className="font-display text-2xl font-black leading-[1.02] tracking-tight sm:text-3xl md:text-4xl">
               Conquista el mundo con tu BØLG.
             </h2>
-            <p className="text-sm leading-relaxed text-foreground/70">
+            <p className="text-xs leading-relaxed text-foreground/70 sm:text-sm">
               Cada ciudad tiene un conquistador. El primero que llega con un
               BØLG queda con su nombre clavado hasta que lo destronen. Cada mes
               el #1 del ranking se lleva un parche edición limitada, $100.000
@@ -342,7 +397,7 @@ export function AtlasClient(props: Props) {
             <div className="flex flex-col gap-2 sm:flex-row">
               <Link
                 href="/login"
-                className="group flex flex-1 items-center justify-center gap-2 bg-foreground px-5 py-4 text-[10px] uppercase tracking-[0.32em] text-background transition-colors hover:bg-foreground/80"
+                className="group flex flex-1 items-center justify-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.32em] text-background transition-colors hover:bg-foreground/80 sm:py-4"
               >
                 Súmate a conquistar
                 <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
@@ -350,7 +405,7 @@ export function AtlasClient(props: Props) {
               <button
                 type="button"
                 onClick={() => setHeroDismissed(true)}
-                className="px-5 py-4 text-[10px] uppercase tracking-[0.32em] text-foreground/55 transition-colors hover:text-foreground"
+                className="px-5 py-3 text-[10px] uppercase tracking-[0.32em] text-foreground/55 transition-colors hover:text-foreground sm:py-4"
               >
                 Solo mirar
               </button>
@@ -369,7 +424,23 @@ export function AtlasClient(props: Props) {
           flag={countryFlag(selectedCountry)}
           continent={getContinent(selectedCountry)}
           status={statusByCountry[selectedCountry] ?? "none"}
+          cities={citiesByCountry.get(selectedCountry) ?? []}
           onClose={() => setSelectedCountry(null)}
+          onCityClick={(id) => {
+            setSelectedCountry(null);
+            setSelectedCityId(id);
+          }}
+          showInvite={!authedUsername}
+        />
+      )}
+
+      {/* City pin panel */}
+      {selectedCity && (
+        <CityPanel
+          city={selectedCity}
+          flag={countryFlag(selectedCity.countryCode)}
+          countryName={countryDisplayName(selectedCity.countryCode)}
+          onClose={() => setSelectedCityId(null)}
           showInvite={!authedUsername}
         />
       )}
@@ -397,13 +468,26 @@ function ColorLegend() {
         </button>
         {open && (
           <ul className="flex flex-col gap-1 pt-1">
-            <LegendRow color="#5bc0be" label="Conquista completa" />
-            <LegendRow color="#d4a373" label="Conquista parcial" />
+            <LegendDot color="#5bc0be" label="Ciudad con BØLG" />
+            <LegendDot color="#7a7770" label="Visita sin BØLG" />
             <LegendRow color="#dcd8d0" label="Sin conquistar" />
           </ul>
         )}
       </div>
     </div>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      <span
+        className="h-3 w-3 rounded-full border border-foreground/40"
+        style={{ backgroundColor: color }}
+        aria-hidden
+      />
+      <span className="font-mono text-[10px] text-foreground/65">{label}</span>
+    </li>
   );
 }
 
@@ -479,14 +563,18 @@ function CountryPanel({
   flag,
   continent,
   status,
+  cities,
   onClose,
+  onCityClick,
   showInvite,
 }: {
   name: string;
   flag: string;
   continent: string;
   status: CountryStatus;
+  cities: ConqueredCity[];
   onClose: () => void;
+  onCityClick: (cityId: string) => void;
   showInvite: boolean;
 }) {
   const STATUS_COPY: Record<CountryStatus, string> = {
@@ -497,7 +585,7 @@ function CountryPanel({
   return (
     <div
       className={cn(
-        "absolute z-40 flex flex-col gap-3 border border-border bg-card/95 backdrop-blur-md",
+        "absolute z-40 flex flex-col gap-0 border border-border bg-card/95 backdrop-blur-md",
         "md:right-6 md:top-[180px] md:bottom-[280px] md:w-[360px] md:max-w-[40vw]",
         "inset-x-3 top-[180px] bottom-[300px] md:inset-auto",
       )}
@@ -534,13 +622,163 @@ function CountryPanel({
         </button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-4">
-        <p className="font-mono text-xs leading-relaxed text-foreground/65">
-          {status === "none"
-            ? `Nadie ha registrado viajes en ${name} todavía. El primero en cargar uno se convierte en su conquistador.`
-            : status === "partial"
-              ? `Hay viajes BØLG en algunas ciudades de ${name}. Sigue habiendo ciudades por conquistar.`
-              : `Todas las ciudades conocidas de ${name} tienen un conquistador.`}
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+        {cities.length === 0 ? (
+          <p className="font-mono text-xs leading-relaxed text-foreground/65">
+            {`Nadie ha registrado viajes en ${name} todavía. El primero en cargar uno se convierte en su conquistador.`}
+          </p>
+        ) : (
+          <>
+            <p className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
+              Ciudades conquistadas
+            </p>
+            <ul className="flex flex-col divide-y divide-border/60">
+              {cities.map((c) => (
+                <li key={c.id}>
+                  <button
+                    type="button"
+                    onClick={() => onCityClick(c.id)}
+                    className="flex w-full items-center justify-between gap-3 py-2.5 text-left transition-colors hover:bg-foreground/[0.04]"
+                  >
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate text-[13px] font-medium">
+                        {c.name}
+                      </span>
+                      {c.conquerorUsername ? (
+                        <span className="truncate font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/55">
+                          @{c.conquerorUsername}
+                        </span>
+                      ) : (
+                        <span className="truncate font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/40">
+                          Conquistador anónimo
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={cn(
+                        "shrink-0 rounded-full px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.2em]",
+                        c.bolgVisible
+                          ? "bg-aurora/15 text-aurora"
+                          : "bg-foreground/[0.06] text-foreground/55",
+                      )}
+                    >
+                      {c.bolgVisible ? "BØLG" : "Visita"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+
+      {showInvite && (
+        <Link
+          href="/login"
+          className="group flex items-center justify-center gap-2 border-t border-border bg-foreground/[0.03] px-4 py-3 text-center text-[10px] uppercase tracking-[0.32em] text-foreground/75 transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+        >
+          Hazte parte de la comunidad
+          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      )}
+    </div>
+  );
+}
+
+function CityPanel({
+  city,
+  flag,
+  countryName,
+  onClose,
+  showInvite,
+}: {
+  city: ConqueredCity;
+  flag: string;
+  countryName: string;
+  onClose: () => void;
+  showInvite: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "absolute z-40 flex flex-col gap-0 border border-border bg-card/95 backdrop-blur-md",
+        "md:right-6 md:top-[180px] md:w-[340px] md:max-w-[40vw]",
+        "inset-x-3 top-[180px] md:inset-auto",
+      )}
+    >
+      <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <span className="flex items-center gap-1.5 text-[10px] uppercase tracking-[0.32em] text-foreground/55">
+            <span className="text-base leading-none">{flag}</span>
+            {countryName}
+          </span>
+          <h2 className="font-display text-2xl font-black leading-tight tracking-tight">
+            {city.name}
+          </h2>
+          <span
+            className={cn(
+              "mt-1 inline-flex w-fit items-center gap-1.5 border px-2 py-1 text-[10px] uppercase tracking-[0.28em]",
+              city.bolgVisible
+                ? "border-aurora text-aurora"
+                : "border-foreground/40 text-foreground/65",
+            )}
+          >
+            {city.bolgVisible ? "Conquista BØLG" : "Visita registrada"}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-foreground/50 transition-colors hover:text-foreground"
+          aria-label="Cerrar"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-3 px-4 py-4">
+        <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
+          Conquistador actual
+        </span>
+        {city.conquerorUsername ? (
+          <Link
+            href={`/u/${city.conquerorUsername}`}
+            className="group flex items-center gap-3 border border-border bg-card/60 px-3 py-2.5 transition-colors hover:bg-foreground/[0.04]"
+          >
+            <Avatar className="h-9 w-9 bg-fog">
+              {city.conquerorAvatarUrl && (
+                <AvatarImage
+                  src={city.conquerorAvatarUrl}
+                  alt={city.conquerorDisplayName ?? city.conquerorUsername}
+                />
+              )}
+              <AvatarFallback className="bg-fog text-[10px] font-black text-foreground/75">
+                {initialsFrom(
+                  city.conquerorDisplayName ?? city.conquerorUsername,
+                )}
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex min-w-0 flex-1 flex-col leading-tight">
+              <span className="truncate text-[13px] font-medium">
+                {city.conquerorDisplayName ?? `@${city.conquerorUsername}`}
+              </span>
+              <span className="truncate font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/55">
+                @{city.conquerorUsername}
+              </span>
+            </div>
+            <ArrowRight className="h-3 w-3 shrink-0 text-foreground/40 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+        ) : (
+          <p className="font-mono text-xs leading-relaxed text-foreground/65">
+            Conquistador anónimo. Sé tú el que destrone esta ciudad con un BØLG
+            visible.
+          </p>
+        )}
+
+        <p className="font-mono text-[11px] leading-relaxed text-foreground/60">
+          {city.bolgVisible
+            ? "Esta ciudad la marca un viaje con BØLG visible. Para destronarla necesitas subir tu propio viaje con BØLG antes que nadie más."
+            : "Aún no hay un viaje BØLG en esta ciudad. El primero que suba uno se la lleva."}
         </p>
       </div>
 
@@ -569,4 +807,3 @@ function initialsFrom(name: string): string {
       .slice(0, 2) || "·"
   );
 }
-

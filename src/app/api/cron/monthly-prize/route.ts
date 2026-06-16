@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { Resend } from "resend";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -11,12 +11,40 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * Protegido por CRON_SECRET (encabezado Authorization).
  */
 
-const ADMIN_EMAIL = "benja.bolgen@gmail.com";
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "benja.bolgen@gmail.com";
+
+/**
+ * Compare two strings in constant time so an attacker can't learn the
+ * secret by timing the equality check. Lengths are compared first because
+ * timingSafeEqual itself throws when buffer lengths differ — but we feed
+ * it equal-length buffers regardless so the failure path of the compare
+ * also runs in constant time.
+ */
+function safeEqual(a: string, b: string): boolean {
+  const aBuf = Buffer.from(a, "utf8");
+  const bBuf = Buffer.from(b, "utf8");
+  // Pad/truncate both buffers to a fixed length so timingSafeEqual never
+  // short-circuits on size. The length mismatch is recorded separately
+  // and folded into the final boolean via bitwise OR so the result is
+  // false whenever lengths differ, without leaking the length difference
+  // through control flow.
+  const len = Math.max(aBuf.length, bBuf.length, 1);
+  const aFixed = Buffer.alloc(len);
+  const bFixed = Buffer.alloc(len);
+  aBuf.copy(aFixed);
+  bBuf.copy(bFixed);
+  const lenMismatch = aBuf.length === bBuf.length ? 0 : 1;
+  const eq = timingSafeEqual(aFixed, bFixed) ? 0 : 1;
+  return (lenMismatch | eq) === 0;
+}
 
 export async function GET(request: Request) {
   const expected = process.env.CRON_SECRET;
   const auth = request.headers.get("authorization");
-  if (!expected || auth !== `Bearer ${expected}`) {
+  const provided = auth?.startsWith("Bearer ")
+    ? auth.slice("Bearer ".length)
+    : null;
+  if (!expected || !provided || !safeEqual(expected, provided)) {
     return new Response("unauthorized", { status: 401 });
   }
 
