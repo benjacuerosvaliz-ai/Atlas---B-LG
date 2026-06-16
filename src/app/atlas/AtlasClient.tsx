@@ -225,11 +225,13 @@ export function AtlasClient(props: Props) {
         />
       </div>
 
-      {/* Floating "Cargar viaje" CTA for authed users */}
+      {/* Floating "Cargar viaje" CTA for authed users.
+          Mobile bottom panel grew con la fila BØLG-100, así que lo subimos
+          a bottom-[360px] en mobile para que no tape el row top travelers. */}
       {authedUsername && (
         <Link
           href="/trip/new"
-          className="absolute bottom-[200px] right-4 z-30 flex items-center gap-2 bg-foreground px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-background shadow-lg transition-colors hover:bg-foreground/80 sm:bottom-[260px] md:bottom-[280px] md:right-8"
+          className="absolute bottom-[360px] right-4 z-30 flex items-center gap-2 bg-foreground px-4 py-3 text-[10px] uppercase tracking-[0.28em] text-background shadow-lg transition-colors hover:bg-foreground/80 sm:bottom-[260px] md:bottom-[280px] md:right-8"
           data-tour="upload"
         >
           <Plus className="h-3 w-3" />
@@ -237,8 +239,15 @@ export function AtlasClient(props: Props) {
         </Link>
       )}
 
-      {/* Bottom panel: Mode toggle → KPIs → Top travelers → Country chips */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 px-4 pb-5 md:px-8 md:pb-6">
+      {/* Bottom panel: Mode toggle → KPIs → Top travelers → Country chips.
+          pb usa safe-area-inset-bottom para que el CTA final no quede tapado
+          por la home-indicator de iOS ni el N de devtools. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex flex-col gap-2 px-4 md:px-8"
+        style={{
+          paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))",
+        }}
+      >
         <div
           className="pointer-events-auto flex flex-col divide-y divide-border border border-border bg-card/90 backdrop-blur-sm"
           data-tour="hud"
@@ -267,8 +276,10 @@ export function AtlasClient(props: Props) {
             total={totals.bolg100}
           />
 
-          {/* KPIs with X/Y fractions */}
-          <div className="grid grid-cols-4 gap-2 px-4 py-3 md:gap-4 md:px-5 md:py-4" data-tour="kpis">
+          {/* KPIs with X/Y fractions.
+              Mobile: 2x2 grid para que "Continentes" no se corte. Desktop:
+              fila de 4 como antes. */}
+          <div className="grid grid-cols-2 gap-2 px-4 py-3 md:grid-cols-4 md:gap-4 md:px-5 md:py-4" data-tour="kpis">
             <Kpi value={kpis.totalKm} label="Km" />
             {/* Ciudades sin denominador — no hay un "total mundial" sensato.
                 Solo es un contador de momentum. */}
@@ -277,9 +288,13 @@ export function AtlasClient(props: Props) {
             <Kpi value={kpis.continentsConocidos} total={totals.continents} label="Continentes" />
           </div>
 
-          {/* Top travelers strip */}
+          {/* Top travelers strip.
+              pl-12 en mobile reserva el espacio del botón "?" del tour
+              (absolute bottom-[140px] left-4, 40px ancho) que en pantallas
+              chicas cae sobre esta fila — sin él los avatares se montan
+              encima. Desktop usa md:pl-0 porque el "?" cambia de posición. */}
           {topTravelers.length > 0 && (
-            <div className="flex items-center gap-3 px-4 py-3 md:px-5" data-tour="top">
+            <div className="flex items-center gap-3 px-4 py-3 pl-12 md:px-5 md:pl-5" data-tour="top">
               <span className="shrink-0 text-[10px] uppercase tracking-[0.28em] text-foreground/50">
                 Top
               </span>
@@ -382,10 +397,12 @@ export function AtlasClient(props: Props) {
       </div>
 
       {/* Anonymous hero hook — manifesto card. En mobile va anclado arriba
-          (top-[110px]) para no chocar con el bottom panel; en sm+ va centrado. */}
+          (top-[110px]) para no chocar con el bottom panel; en sm+ va centrado.
+          El wrapper usa box-border + px-4 simétrico y el card se auto-centra
+          con mx-auto + w-full + max-w-md (clampea bien a 375px). */}
       {!authedUsername && !heroDismissed && (
-        <div className="pointer-events-none absolute inset-x-0 top-[110px] z-20 flex justify-center px-4 sm:inset-0 sm:top-0 sm:items-center">
-          <div className="pointer-events-auto flex w-full max-w-md flex-col gap-3 border-2 border-foreground bg-card/95 p-4 backdrop-blur-md sm:gap-4 sm:p-6 md:p-8">
+        <div className="pointer-events-none absolute inset-x-0 top-[110px] z-20 box-border flex justify-center px-4 sm:inset-0 sm:top-0 sm:items-center">
+          <div className="pointer-events-auto mx-auto flex w-full min-w-0 max-w-md flex-col gap-3 border-2 border-foreground bg-card/95 p-4 backdrop-blur-md sm:gap-4 sm:p-6 md:p-8">
             <div className="flex items-start justify-between gap-3">
               <span className="text-[10px] uppercase tracking-[0.36em] text-aurora">
                 Atlas BØLG

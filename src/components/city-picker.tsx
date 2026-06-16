@@ -104,7 +104,7 @@ export function CityPicker({
       </label>
 
       {value ? (
-        <div className="flex items-center justify-between gap-3 border-b border-foreground py-3">
+        <div className="flex min-h-[44px] items-center justify-between gap-3 border-b border-foreground py-3">
           <div className="flex min-w-0 items-center gap-3">
             <MapPin
               className="h-4 w-4 shrink-0 text-foreground/60"
@@ -123,7 +123,7 @@ export function CityPicker({
           <button
             type="button"
             onClick={clear}
-            className="text-foreground/40 transition-colors hover:text-foreground"
+            className="grid h-11 w-11 shrink-0 place-items-center text-foreground/40 transition-colors hover:text-foreground sm:h-8 sm:w-8"
             aria-label="Cambiar ciudad"
           >
             <X className="h-4 w-4" />
@@ -138,20 +138,23 @@ export function CityPicker({
             onFocus={() => results.length > 0 && setIsOpen(true)}
             placeholder={placeholder}
             autoFocus={autoFocus}
-            className="w-full border-b border-border bg-transparent py-3 pr-8 text-base placeholder:text-foreground/30 focus:border-foreground focus:outline-none transition-colors"
+            autoCapitalize="words"
+            autoCorrect="off"
+            spellCheck={false}
+            className="min-h-[44px] w-full border-b border-border bg-transparent py-3 pr-8 text-base placeholder:text-foreground/30 focus:border-foreground focus:outline-none transition-colors"
           />
           {isLoading && (
             <Loader2 className="absolute right-1 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-foreground/40" />
           )}
 
           {isOpen && results.length > 0 && (
-            <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-72 overflow-y-auto border border-border bg-card shadow-lg">
+            <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-[min(60vh,18rem)] overflow-y-auto overscroll-contain border border-border bg-card shadow-lg">
               {results.map((c) => (
                 <li key={c.mapboxId}>
                   <button
                     type="button"
                     onClick={() => pick(c)}
-                    className="flex w-full flex-col items-start gap-1 border-b border-border/40 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-foreground/[0.04]"
+                    className="flex min-h-[56px] w-full flex-col items-start justify-center gap-1 border-b border-border/40 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-foreground/[0.04]"
                   >
                     <span className="text-sm">{c.name}</span>
                     <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-foreground/45">
@@ -168,7 +171,7 @@ export function CityPicker({
               type="button"
               onClick={pickSuggestion}
               disabled={isPickingSuggestion}
-              className="mt-2 inline-flex items-center gap-2 border border-border px-3 py-2 text-[10px] uppercase tracking-[0.24em] text-foreground/70 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
+              className="mt-2 inline-flex min-h-[44px] items-center gap-2 border border-border px-4 py-2 text-[10px] uppercase tracking-[0.24em] text-foreground/70 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50"
             >
               {isPickingSuggestion ? (
                 <Loader2 className="h-3 w-3 animate-spin" aria-hidden />

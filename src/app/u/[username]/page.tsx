@@ -242,7 +242,7 @@ export default async function UserProfilePage({ params }: Props) {
         {isSelf && (
           <Link
             href="/dashboard"
-            className="text-[10px] uppercase tracking-[0.28em] text-bone/70 hover:text-bone transition-colors"
+            className="-m-2 p-2 text-[10px] uppercase tracking-[0.28em] text-bone/70 hover:text-bone transition-colors"
           >
             Dashboard →
           </Link>
@@ -251,7 +251,7 @@ export default async function UserProfilePage({ params }: Props) {
 
       <main className="flex flex-1 flex-col">
         {/* Hero cover */}
-        <section className="relative h-[44vh] min-h-[280px] w-full overflow-hidden bg-fog">
+        <section className="relative h-[36vh] min-h-[240px] w-full overflow-hidden bg-fog sm:h-[44vh] sm:min-h-[280px]">
           {coverUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -265,9 +265,9 @@ export default async function UserProfilePage({ params }: Props) {
         </section>
 
         {/* Profile head */}
-        <section className="-mt-20 px-6 md:px-10">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 sm:flex-row sm:items-end sm:gap-8">
-            <Avatar className="h-24 w-24 border border-mist/30 bg-fog">
+        <section className="-mt-14 px-6 sm:-mt-20 md:px-10">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 sm:flex-row sm:items-end sm:gap-8">
+            <Avatar className="h-20 w-20 border border-mist/30 bg-fog sm:h-24 sm:w-24">
               {profile.avatar_url && (
                 <AvatarImage
                   src={profile.avatar_url as string}
@@ -279,11 +279,11 @@ export default async function UserProfilePage({ params }: Props) {
               </AvatarFallback>
             </Avatar>
 
-            <div className="flex flex-col gap-2">
-              <h1 className="font-display text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
+            <div className="flex min-w-0 flex-col gap-2">
+              <h1 className="break-words font-display text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl md:text-5xl">
                 {profile.display_name ?? `@${profile.username}`}
               </h1>
-              <p className="font-mono text-sm text-foreground/55">
+              <p className="font-mono text-xs text-foreground/55 sm:text-sm">
                 @{profile.username}
                 {profile.city && (
                   <>
@@ -316,24 +316,32 @@ export default async function UserProfilePage({ params }: Props) {
         </section>
 
         {/* KPIs */}
-        <section className="mx-auto mt-12 grid w-full max-w-5xl grid-cols-2 gap-y-8 border-t border-border px-6 pt-8 md:grid-cols-4 md:px-10">
+        <section className="mx-auto mt-10 grid w-full max-w-5xl grid-cols-2 gap-y-6 border-t border-border px-6 pt-8 sm:gap-y-8 md:mt-12 md:grid-cols-4 md:px-10">
           <Kpi value={profile.total_km ?? 0} label="Kilómetros" suffix="km" />
           <Kpi value={countries.size} label="Países" />
           <Kpi value={trips.length} label="Viajes" />
           <Kpi value={gear.length} label="Equipaje" />
         </section>
 
-        {/* Mini-globe */}
+        {/* Mini-globe — más bajo en mobile para reducir carga Three.js */}
         {points.length > 0 && (
-          <section className="mx-auto mt-12 w-full max-w-3xl px-6 md:px-10">
-            <Globe points={points} height="380px" cameraDistance={3.6} />
+          <section className="mx-auto mt-10 w-full max-w-3xl px-6 md:mt-12 md:px-10">
+            <div className="block sm:hidden">
+              <Globe points={points} height="280px" cameraDistance={3.6} />
+            </div>
+            <div className="hidden sm:block">
+              <Globe points={points} height="380px" cameraDistance={3.6} />
+            </div>
           </section>
         )}
 
         {/* Tabs */}
-        <section className="mx-auto mt-16 w-full max-w-5xl px-6 pb-24 md:px-10">
-          <Tabs defaultValue="trips" className="flex flex-col gap-8">
-            <TabsList variant="line">
+        <section className="mx-auto mt-12 w-full max-w-5xl px-6 pb-24 md:mt-16 md:px-10">
+          <Tabs defaultValue="trips" className="flex flex-col gap-6 sm:gap-8">
+            <TabsList
+              variant="line"
+              className="-mx-6 flex w-auto max-w-none overflow-x-auto px-6 sm:mx-0 sm:w-fit sm:px-0 [&::-webkit-scrollbar]:hidden"
+            >
               <TabsTrigger value="trips">
                 <span className="text-[10px] uppercase tracking-[0.28em]">
                   Viajes · {trips.length}
@@ -462,8 +470,8 @@ function Kpi({
 }) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-baseline gap-1.5">
-        <span className="font-mono text-3xl font-bold tabular-nums tracking-tight md:text-4xl">
+      <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
+        <span className="font-mono text-2xl font-bold tabular-nums tracking-tight sm:text-3xl md:text-4xl">
           {value.toLocaleString("es-CL")}
         </span>
         {suffix && (

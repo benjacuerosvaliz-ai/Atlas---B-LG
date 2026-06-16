@@ -18,7 +18,7 @@ export function TripCard({ trip }: { trip: TripCardData }) {
   return (
     <Link
       href={`/t/${trip.id}`}
-      className="group flex flex-col gap-3 border border-border p-4 hover:border-foreground/60 transition-colors"
+      className="group flex flex-col gap-3 border border-border p-3 transition-colors hover:border-foreground/60 active:border-foreground/60 sm:p-4"
     >
       {trip.cover_photo_url ? (
         <div className="aspect-[4/3] overflow-hidden bg-fog">
@@ -34,7 +34,9 @@ export function TripCard({ trip }: { trip: TripCardData }) {
         <div className="aspect-[4/3] bg-fog" />
       )}
       <div className="flex flex-col gap-1">
-        <span className="text-base leading-tight">{tripDisplayTitle(trip)}</span>
+        <span className="break-words text-base leading-tight">
+          {tripDisplayTitle(trip)}
+        </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/40">
           <span className="tabular-nums">
             {(trip.distance_km ?? 0).toLocaleString("es-CL")} km

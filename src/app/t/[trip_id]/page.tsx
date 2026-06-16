@@ -119,23 +119,23 @@ export default async function TripPage({ params, searchParams }: Props) {
         <BolgWordmark href="/" />
         <Link
           href="/dashboard"
-          className="text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
+          className="-m-2 p-2 text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
         >
           Dashboard
         </Link>
       </header>
 
-      <main className="flex flex-1 flex-col gap-12 px-6 pb-24 pt-8 md:px-10">
+      <main className="flex flex-1 flex-col gap-10 px-6 pb-24 pt-6 sm:gap-12 sm:pt-8 md:px-10">
         <section className="mx-auto flex w-full max-w-3xl flex-col gap-4">
           <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/40">
             {trip.activity_type
               ? ACTIVITY_LABELS[trip.activity_type as ActivityType]
               : "Viaje"}
           </span>
-          <h1 className="font-display text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
+          <h1 className="break-words font-display text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl md:text-5xl">
             {trip.title ?? tripHeading(trip)}
           </h1>
-          <p className="font-mono text-sm text-foreground/55">
+          <p className="font-mono text-xs text-foreground/55 sm:text-sm">
             {trip.start_at &&
               format(new Date(trip.start_at), "d 'de' MMMM, yyyy", {
                 locale: es,

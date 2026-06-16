@@ -81,7 +81,7 @@ export default async function DashboardPage() {
     <div className="relative flex min-h-screen flex-col bg-background">
       <header className="flex items-center justify-between px-6 py-5 md:px-10 md:py-7">
         <BolgWordmark href="/" />
-        <nav className="flex items-center gap-5">
+        <nav className="flex items-center gap-3 sm:gap-5">
           <Link
             href="/atlas"
             className="hidden text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors sm:inline"
@@ -97,7 +97,7 @@ export default async function DashboardPage() {
           <form action={signOut}>
             <button
               type="submit"
-              className="text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
+              className="-m-2 p-2 text-[10px] uppercase tracking-[0.28em] text-foreground/60 hover:text-foreground transition-colors"
             >
               Cerrar sesión
             </button>
@@ -105,15 +105,15 @@ export default async function DashboardPage() {
         </nav>
       </header>
 
-      <main className="flex flex-1 flex-col gap-12 px-6 pb-24 pt-8 md:px-10">
+      <main className="flex flex-1 flex-col gap-10 px-6 pb-24 pt-6 sm:gap-12 sm:pt-8 md:px-10">
         <section className="flex flex-col gap-3">
           <span className="text-[10px] uppercase tracking-[0.36em] text-foreground/40">
             Bienvenido
           </span>
-          <h1 className="font-display text-4xl font-black leading-[1.05] tracking-tight md:text-5xl">
+          <h1 className="break-words font-display text-3xl font-black leading-[1.05] tracking-tight sm:text-4xl md:text-5xl">
             Hola, {profile?.display_name ?? user.email}.
           </h1>
-          <p className="font-mono text-sm text-foreground/50">
+          <p className="font-mono text-xs text-foreground/50 sm:text-sm">
             {profile?.username ? (
               <Link
                 href={`/u/${profile.username}`}
@@ -190,7 +190,7 @@ export default async function DashboardPage() {
         )}
 
         <section className="flex flex-col gap-6 border-t border-border pt-8">
-          <div className="flex items-baseline justify-between">
+          <div className="flex flex-wrap items-baseline justify-between gap-3">
             <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
               Tus viajes
             </span>

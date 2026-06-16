@@ -126,42 +126,46 @@ export default async function RankingPage() {
                 <li key={r.userId}>
                   <Link
                     href={`/u/${r.username}`}
-                    className={`group grid grid-cols-[2rem_3rem_1fr_auto_auto_auto_1rem] items-center gap-3 border-b border-border/60 px-2 py-4 transition-colors hover:bg-foreground/[0.04] md:gap-6 md:px-4 ${
+                    className={`group flex items-center gap-3 border-b border-border/60 px-2 py-4 transition-colors hover:bg-foreground/[0.04] sm:grid sm:grid-cols-[2rem_3rem_1fr_auto_auto_auto_1rem] sm:gap-6 sm:px-4 ${
                       user && r.userId === user.id ? "bg-aurora/[0.06]" : ""
                     }`}
                   >
                     <span
                       className={
                         idx < 3
-                          ? "font-display text-xl font-black tabular-nums text-aurora md:text-2xl"
-                          : "font-mono text-sm tabular-nums text-foreground/45"
+                          ? "w-6 shrink-0 font-display text-lg font-black tabular-nums text-aurora sm:w-auto sm:text-2xl"
+                          : "w-6 shrink-0 font-mono text-sm tabular-nums text-foreground/45 sm:w-auto"
                       }
                     >
                       #{idx + 1}
                     </span>
-                    <Avatar className="h-11 w-11 shrink-0 bg-fog">
+                    <Avatar className="h-9 w-9 shrink-0 bg-fog sm:h-11 sm:w-11">
                       {r.avatarUrl && (
                         <AvatarImage
                           src={r.avatarUrl}
                           alt={r.displayName ?? r.username}
                         />
                       )}
-                      <AvatarFallback className="bg-fog text-xs font-black text-foreground/75">
+                      <AvatarFallback className="bg-fog text-[10px] font-black text-foreground/75 sm:text-xs">
                         {initialsFrom(r.displayName ?? r.username)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex min-w-0 flex-col gap-0.5">
-                      <span className="truncate text-base group-hover:text-foreground">
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-none">
+                      <span className="line-clamp-2 break-words text-sm leading-tight group-hover:text-foreground sm:line-clamp-none sm:truncate sm:text-base sm:leading-normal">
                         {r.displayName ?? `@${r.username}`}
                       </span>
-                      <span className="truncate font-mono text-[10px] text-foreground/45">
+                      <span className="truncate font-mono text-[10px] text-foreground/45 sm:text-[10px]">
                         @{r.username}
+                      </span>
+                      <span className="mt-0.5 truncate font-mono text-[10px] text-foreground/55 sm:hidden">
+                        {r.continents} cont · {r.countries} países ·{" "}
+                        {r.cities} cdds
                       </span>
                     </div>
                     <Stat label="Cont" value={r.continents} />
                     <Stat label="Países" value={r.countries} />
                     <Stat label="Cdds" value={r.cities} />
-                    <ChevronRight className="h-4 w-4 text-foreground/35 transition-colors group-hover:text-foreground" />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-foreground/35 transition-colors group-hover:text-foreground" />
                   </Link>
                 </li>
               ))}
@@ -171,25 +175,25 @@ export default async function RankingPage() {
 
         {user && me && !inTop && (
           <section className="mx-auto w-full max-w-4xl">
-            <div className="flex items-center gap-3 border-2 border-foreground bg-card/95 px-3 py-4 md:gap-6 md:px-4">
-              <span className="font-display text-xl font-black tabular-nums text-foreground md:text-2xl">
+            <div className="flex items-center gap-3 border-2 border-foreground bg-card/95 px-3 py-4 sm:gap-6 sm:px-4">
+              <span className="shrink-0 font-display text-lg font-black tabular-nums text-foreground sm:text-2xl">
                 #{myRank}
               </span>
-              <Avatar className="h-11 w-11 shrink-0 bg-fog">
+              <Avatar className="h-9 w-9 shrink-0 bg-fog sm:h-11 sm:w-11">
                 {me.avatarUrl && (
                   <AvatarImage src={me.avatarUrl} alt={me.displayName ?? me.username} />
                 )}
-                <AvatarFallback className="bg-fog text-xs font-black text-foreground/75">
+                <AvatarFallback className="bg-fog text-[10px] font-black text-foreground/75 sm:text-xs">
                   {initialsFrom(me.displayName ?? me.username)}
                 </AvatarFallback>
               </Avatar>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                <span className="truncate text-sm">
+                <span className="line-clamp-2 break-words text-sm leading-tight sm:line-clamp-none sm:truncate sm:leading-normal">
                   Tú · {me.displayName ?? `@${me.username}`}
                 </span>
                 <span className="truncate font-mono text-[10px] text-foreground/55">
-                  {me.continents} continentes · {me.countries} países ·{" "}
-                  {me.cities} ciudades
+                  {me.continents} cont · {me.countries} países · {me.cities}{" "}
+                  cdds
                 </span>
               </div>
               <Link

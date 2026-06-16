@@ -196,7 +196,7 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
             Marca los que ya tienes para empezar tu equipaje. Puedes agregar
             más después.
           </p>
-          <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5">
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
             {catalog.map((m) => {
               const selected = selectedModels.includes(m.id);
               return (
@@ -205,7 +205,7 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
                     type="button"
                     onClick={() => toggleModel(m.id)}
                     className={cn(
-                      "group flex w-full flex-col gap-1.5 overflow-hidden border transition-colors",
+                      "group flex min-h-[44px] w-full flex-col gap-1.5 overflow-hidden border transition-colors",
                       selected
                         ? "border-foreground"
                         : "border-border hover:border-foreground/60",
@@ -226,12 +226,12 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
                         </div>
                       )}
                       {selected && (
-                        <span className="absolute right-2 top-2 grid h-6 w-6 place-items-center bg-foreground text-background">
-                          <Check className="h-3 w-3" />
+                        <span className="absolute right-2 top-2 grid h-7 w-7 place-items-center bg-foreground text-background sm:h-6 sm:w-6">
+                          <Check className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
                         </span>
                       )}
                     </div>
-                    <span className="px-2 pb-2 text-left text-[11px] leading-tight">
+                    <span className="px-2 pb-2 text-left text-[12px] leading-tight sm:text-[11px]">
                       {m.name}
                     </span>
                   </button>
@@ -246,11 +246,11 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
         <p className="font-mono text-xs text-destructive">{state.message}</p>
       )}
 
-      <div className="flex justify-end border-t border-border pt-6">
+      <div className="flex border-t border-border pt-6 sm:justify-end">
         <button
           type="submit"
           disabled={isPending || pinMismatch || pin.length !== 4}
-          className="flex items-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.28em] text-background hover:bg-foreground/80 transition-colors disabled:opacity-30"
+          className="flex min-h-[48px] w-full items-center justify-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.28em] text-background hover:bg-foreground/80 transition-colors disabled:opacity-30 sm:w-auto"
         >
           {isPending ? (
             <>
@@ -270,7 +270,7 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
 }
 
 const inputCls =
-  "w-full border-b border-border bg-transparent py-3 text-base placeholder:text-foreground/30 focus:border-foreground focus:outline-none transition-colors";
+  "w-full min-h-[44px] border-b border-border bg-transparent py-3 text-base placeholder:text-foreground/30 focus:border-foreground focus:outline-none transition-colors";
 
 function Field({
   label,

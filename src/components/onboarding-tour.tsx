@@ -143,7 +143,7 @@ export function OnboardingTour({ authedUsername }: Props) {
       type="button"
       onClick={startTour}
       aria-label="Ver el tutorial otra vez"
-      className="absolute bottom-[140px] left-4 z-30 flex h-10 w-10 items-center justify-center border border-border bg-card/90 text-foreground/70 backdrop-blur-sm transition-colors hover:border-foreground hover:text-foreground md:bottom-[160px] md:left-6"
+      className="absolute bottom-[440px] left-4 z-30 flex h-10 w-10 items-center justify-center border border-border bg-card/90 text-foreground/70 backdrop-blur-sm transition-colors hover:border-foreground hover:text-foreground sm:bottom-[160px] md:left-6"
     >
       <HelpCircle className="h-4 w-4" />
     </button>
