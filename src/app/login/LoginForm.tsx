@@ -1,7 +1,7 @@
 "use client";
 
-import { ArrowRight, Loader2 } from "lucide-react";
-import { useActionState, useState } from "react";
+import { ArrowRight, Loader2, Mail, User } from "lucide-react";
+import { useActionState, useState, type ComponentType, type SVGProps } from "react";
 import { cn } from "@/lib/utils";
 import {
   sendMagicLink,
@@ -30,12 +30,14 @@ export function LoginForm() {
         <TabButton
           active={tab === "pin"}
           onClick={() => setTab("pin")}
+          icon={User}
           label="Usuario + PIN"
           sub="Rápido"
         />
         <TabButton
           active={tab === "magic"}
           onClick={() => setTab("magic")}
+          icon={Mail}
           label="Magic link"
           sub="Por correo"
         />
@@ -49,11 +51,13 @@ export function LoginForm() {
 function TabButton({
   active,
   onClick,
+  icon: Icon,
   label,
   sub,
 }: {
   active: boolean;
   onClick: () => void;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
   label: string;
   sub: string;
 }) {
@@ -64,20 +68,29 @@ function TabButton({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        "flex min-h-[56px] flex-col items-start justify-center gap-0.5 px-4 py-3 text-left transition-colors",
+        "flex min-h-[56px] items-center gap-3 px-4 py-3 text-left transition-colors",
         active
           ? "bg-foreground text-background"
           : "bg-transparent text-foreground/65 hover:text-foreground",
       )}
     >
-      <span className="text-[11px] uppercase tracking-[0.24em]">{label}</span>
-      <span
+      <Icon
         className={cn(
-          "font-mono text-[9px] uppercase tracking-[0.22em]",
-          active ? "text-background/70" : "text-foreground/40",
+          "h-4 w-4 shrink-0 transition-colors",
+          active ? "text-background" : "text-foreground/55",
         )}
-      >
-        {sub}
+        aria-hidden
+      />
+      <span className="flex flex-col gap-0.5">
+        <span className="text-[11px] uppercase tracking-[0.24em]">{label}</span>
+        <span
+          className={cn(
+            "font-mono text-[9px] uppercase tracking-[0.22em]",
+            active ? "text-background/70" : "text-foreground/40",
+          )}
+        >
+          {sub}
+        </span>
       </span>
     </button>
   );
@@ -138,12 +151,12 @@ function PinForm() {
       >
         {isPending ? (
           <>
-            Entrando
+            Conquistando
             <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
           </>
         ) : (
           <>
-            Entrar
+            Conquistar
             <ArrowRight className="h-3 w-3" aria-hidden />
           </>
         )}
@@ -227,7 +240,7 @@ function MagicForm() {
         <p className="font-mono text-xs text-destructive">{state.message}</p>
       )}
       <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/45">
-        Si es tu primera vez, te creamos la cuenta automáticamente.
+        ¿Sin cuenta? Crea una con tu email — te la creamos al instante.
       </p>
     </form>
   );

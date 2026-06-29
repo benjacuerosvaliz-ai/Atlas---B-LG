@@ -4,6 +4,7 @@ import {
   Flag,
   Globe as GlobeIcon,
   Mountain,
+  Plus,
   Repeat,
   Sparkles,
   Sun,
@@ -240,19 +241,34 @@ export default async function UserProfilePage({ params }: Props) {
       <header className="absolute inset-x-0 top-0 z-30 flex items-center justify-between px-6 py-5 md:px-10 md:py-7">
         <BolgWordmark href="/" />
         {isSelf && (
-          <Link
-            href="/dashboard"
-            className="-m-2 p-2 text-[10px] uppercase tracking-[0.28em] text-bone/70 hover:text-bone transition-colors"
-          >
-            Dashboard →
-          </Link>
+          <nav className="flex items-center gap-2 sm:gap-3">
+            {/* Quick action: estás en tu perfil → un click para sumar
+                la próxima conquista. */}
+            <Link
+              href="/trip/new"
+              className="group inline-flex items-center gap-1.5 border border-bone/30 bg-background/30 px-3 py-2 text-[10px] uppercase tracking-[0.28em] text-bone backdrop-blur-sm transition-colors hover:border-bone hover:bg-background/50"
+            >
+              <Plus className="h-3 w-3 transition-transform group-hover:rotate-90" />
+              Cargar viaje
+            </Link>
+            <Link
+              href="/dashboard"
+              className="-m-2 p-2 text-[10px] uppercase tracking-[0.28em] text-bone/70 hover:text-bone transition-colors"
+            >
+              Dashboard →
+            </Link>
+          </nav>
         )}
       </header>
 
       <main className="flex flex-1 flex-col">
-        {/* Hero cover */}
+        {/* Hero cover. Si hay cover_url o el primer viaje trae portada,
+            la usamos. Si no, en vez de un bg vacío plano renderizamos un
+            "campo de niebla" con gradient diagonal aurora→ember sutil
+            y la inicial del user gigante de fondo — se siente curado,
+            no roto. */}
         <section className="relative h-[36vh] min-h-[240px] w-full overflow-hidden bg-fog sm:h-[44vh] sm:min-h-[280px]">
-          {coverUrl && (
+          {coverUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={coverUrl}
@@ -260,6 +276,18 @@ export default async function UserProfilePage({ params }: Props) {
               className="h-full w-full object-cover"
               loading="eager"
             />
+          ) : (
+            <>
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,rgba(91,192,190,0.18),transparent_55%),radial-gradient(circle_at_75%_70%,rgba(212,163,115,0.14),transparent_55%)]" />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span
+                  aria-hidden
+                  className="select-none font-display text-[28vh] font-black leading-none tracking-tighter text-foreground/[0.05] sm:text-[32vh]"
+                >
+                  {initials || "BØLG"}
+                </span>
+              </div>
+            </>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent" />
         </section>

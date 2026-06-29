@@ -1,7 +1,16 @@
 "use client";
 
-import { ArrowRight, Check, ImageOff, Loader2 } from "lucide-react";
-import { useActionState, useState } from "react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Compass,
+  ImageOff,
+  Loader2,
+  Lock,
+  Package,
+} from "lucide-react";
+import { useActionState, useMemo, useState, type ComponentType, type SVGProps } from "react";
 import { CityPicker } from "@/components/city-picker";
 import type { City } from "@/lib/mapbox";
 import { cn } from "@/lib/utils";
@@ -22,11 +31,59 @@ type Props = {
   catalog: ModelLite[];
 };
 
+// Steps for the "full" wizard. pin-only mode skips straight to security.
+type StepId = "identity" | "gear" | "security";
+
+const STEPS: ReadonlyArray<{
+  id: StepId;
+  label: string;
+  title: string;
+  motivation: string;
+  icon: ComponentType<SVGProps<SVGSVGElement>>;
+}> = [
+  {
+    id: "identity",
+    label: "Identidad",
+    title: "¿Quién conquista?",
+    motivation:
+      "El Atlas necesita saber tu nombre y desde dónde partes — así sabe a quién felicitar cuando llegues a la cima.",
+    icon: Compass,
+  },
+  {
+    id: "gear",
+    label: "Equipaje",
+    title: "Tu equipaje BØLG",
+    motivation:
+      "Marca los modelos que ya tienes para empezar tu equipaje. Esto es opcional — puedes saltártelo y agregar más después.",
+    icon: Package,
+  },
+  {
+    id: "security",
+    label: "Seguridad",
+    title: "Tu llave rápida",
+    motivation:
+      "Un PIN de 4 dígitos para que la próxima vez entres sin esperar el correo. Memorízalo bien — si lo olvidas, lo cambias con magic link.",
+    icon: Lock,
+  },
+];
+
+const USERNAME_RE = /^[a-z0-9_]{3,30}$/;
+
 export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
+  const isPinOnly = mode === "pin-only";
+
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [pin, setPin] = useState("");
   const [pinConfirm, setPinConfirm] = useState("");
   const [city, setCity] = useState<City | undefined>(undefined);
+  const [displayName, setDisplayName] = useState(initialDisplayName);
+  const [username, setUsername] = useState("");
+  const [instagram, setInstagram] = useState("");
+
+  // Wizard step index. pin-only mode forces step 2 (security) immediately.
+  const [stepIdx, setStepIdx] = useState<number>(isPinOnly ? 2 : 0);
+  const currentStep = STEPS[stepIdx]!;
+
   const [state, formAction, isPending] = useActionState(
     completeOnboarding,
     INITIAL_STATE,
@@ -42,10 +99,34 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
   const pinMismatch =
     pin.length === 4 && pinConfirm.length === 4 && pin !== pinConfirm;
 
+  // Per-step validity. In pin-only mode, only security matters.
+  const identityValid = useMemo(() => {
+    if (isPinOnly) return true;
+    const dn = displayName.trim();
+    const un = username.trim().toLowerCase();
+    return dn.length >= 1 && dn.length <= 80 && USERNAME_RE.test(un);
+  }, [isPinOnly, displayName, username]);
+
+  // Gear step has no required fields — always valid.
+  const securityValid = pin.length === 4 && pinConfirm.length === 4 && pin === pinConfirm;
+
+  function goNext() {
+    if (stepIdx === 0 && !identityValid) return;
+    setStepIdx((i) => Math.min(STEPS.length - 1, i + 1));
+  }
+
+  function goPrev() {
+    setStepIdx((i) => Math.max(isPinOnly ? 2 : 0, i - 1));
+  }
+
+  // For the wizard's progress, pin-only is a single-step flow.
+  const totalSteps = isPinOnly ? 1 : STEPS.length;
+  const displayStepNumber = isPinOnly ? 1 : stepIdx + 1;
+
   return (
-    <form action={formAction} className="flex flex-col gap-10">
+    <form action={formAction} className="flex flex-col gap-8">
       <input type="hidden" name="mode" value={mode} />
-      {mode === "full" && (
+      {!isPinOnly && (
         <input
           type="hidden"
           name="selected_models"
@@ -53,12 +134,60 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
         />
       )}
 
-      {mode === "full" && (
-        <section className="flex flex-col gap-6 border-t border-border pt-6">
-          <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-            Tu identidad
+      {/* Progress indicator */}
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
+            Paso {displayStepNumber} de {totalSteps}
           </span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/45">
+            {currentStep.label}
+          </span>
+        </div>
+        <div
+          className="grid gap-1.5"
+          style={{ gridTemplateColumns: `repeat(${totalSteps}, minmax(0,1fr))` }}
+          aria-hidden
+        >
+          {Array.from({ length: totalSteps }).map((_, i) => {
+            const active = isPinOnly ? true : i <= stepIdx;
+            return (
+              <span
+                key={i}
+                className={cn(
+                  "h-[3px] transition-colors",
+                  active ? "bg-foreground" : "bg-border",
+                )}
+              />
+            );
+          })}
+        </div>
+      </div>
 
+      {/* Step header */}
+      <header className="flex flex-col gap-3">
+        <div className="flex items-center gap-2.5">
+          <span className="grid h-8 w-8 place-items-center border border-border text-foreground/70">
+            <currentStep.icon className="h-4 w-4" aria-hidden />
+          </span>
+          <h2 className="font-display text-2xl font-black leading-[1.1] tracking-tight md:text-3xl">
+            {currentStep.title}
+          </h2>
+        </div>
+        <p className="max-w-lg text-sm leading-relaxed text-foreground/65">
+          {currentStep.motivation}
+        </p>
+      </header>
+
+      {/* IDENTITY — only in full mode */}
+      {!isPinOnly && (
+        <section
+          className={cn(
+            "flex flex-col gap-6",
+            stepIdx === 0 ? "block" : "hidden",
+          )}
+          aria-hidden={stepIdx !== 0}
+        >
           <Field
             label="Nombre"
             hint="Tu nombre completo como quieres aparecer en tu perfil. Espacios, tildes y mayúsculas OK."
@@ -67,10 +196,10 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
             <input
               name="display_name"
               type="text"
-              required
               minLength={1}
               maxLength={80}
-              defaultValue={initialDisplayName}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
               autoComplete="name"
               placeholder="Juan Pérez"
               className={inputCls}
@@ -85,10 +214,13 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
             <input
               name="username"
               type="text"
-              required
               minLength={3}
               maxLength={30}
               pattern="^[a-z0-9_]+$"
+              value={username}
+              onChange={(e) =>
+                setUsername(e.target.value.toLowerCase().replace(/\s+/g, ""))
+              }
               autoComplete="username"
               placeholder="juanperez"
               autoFocus
@@ -120,6 +252,8 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
               name="instagram_handle"
               type="text"
               maxLength={30}
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
               placeholder="bolgconcept"
               className={inputCls}
             />
@@ -127,32 +261,106 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
         </section>
       )}
 
-      <section className="flex flex-col gap-6 border-t border-border pt-6">
-        <div className="flex flex-col gap-2">
-          <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-            Tu PIN de acceso
-          </span>
-          <p className="max-w-lg text-sm leading-relaxed text-foreground/55">
-            4 dígitos. Es tu llave rápida para entrar la próxima vez sin
-            esperar el correo. Memorízalo bien — si lo olvidas, vuelves a
-            pedir un magic link y lo cambias acá.
-          </p>
-        </div>
+      {/* GEAR — only in full mode */}
+      {!isPinOnly && (
+        <section
+          className={cn(
+            "flex flex-col gap-5",
+            stepIdx === 1 ? "block" : "hidden",
+          )}
+          aria-hidden={stepIdx !== 1}
+        >
+          <div className="flex items-baseline justify-between">
+            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
+              Tus BØLG · opcional
+            </span>
+            {selectedModels.length > 0 && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
+                {selectedModels.length} marcados
+              </span>
+            )}
+          </div>
 
+          {catalog.length === 0 ? (
+            <div className="flex flex-col items-start gap-2 border border-dashed border-border px-4 py-6">
+              <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
+                Catálogo en preparación
+              </span>
+              <p className="max-w-md text-sm leading-relaxed text-foreground/60">
+                El equipaje BØLG aún no está cargado. Saltea este paso por ahora
+                — vas a poder marcar tus modelos desde tu perfil apenas estén
+                disponibles.
+              </p>
+            </div>
+          ) : (
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
+              {catalog.map((m) => {
+                const selected = selectedModels.includes(m.id);
+                return (
+                  <li key={m.id}>
+                    <button
+                      type="button"
+                      onClick={() => toggleModel(m.id)}
+                      className={cn(
+                        "group flex min-h-[44px] w-full flex-col gap-1.5 overflow-hidden border transition-colors",
+                        selected
+                          ? "border-foreground"
+                          : "border-border hover:border-foreground/60",
+                      )}
+                    >
+                      <div className="relative aspect-square bg-fog">
+                        {m.heroImageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={m.heroImageUrl}
+                            alt={m.name}
+                            className="h-full w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="grid h-full w-full place-items-center text-foreground/30">
+                            <ImageOff className="h-5 w-5" />
+                          </div>
+                        )}
+                        {selected && (
+                          <span className="absolute right-2 top-2 grid h-7 w-7 place-items-center bg-foreground text-background sm:h-6 sm:w-6">
+                            <Check className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
+                          </span>
+                        )}
+                      </div>
+                      <span className="px-2 pb-2 text-left text-[12px] leading-tight sm:text-[11px]">
+                        {m.name}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {/* SECURITY — shown in both modes (last step) */}
+      <section
+        className={cn(
+          "flex flex-col gap-6",
+          stepIdx === 2 ? "block" : "hidden",
+        )}
+        aria-hidden={stepIdx !== 2}
+      >
         <Field label="PIN (4 dígitos)" hint="Solo números." required>
           <input
             name="pin"
             type="password"
             inputMode="numeric"
             pattern="\d{4}"
-            required
             maxLength={4}
             value={pin}
             onChange={(e) =>
               setPin(e.target.value.replace(/\D/g, "").slice(0, 4))
             }
             autoComplete="new-password"
-            autoFocus={mode === "pin-only"}
+            autoFocus={isPinOnly}
             placeholder="••••"
             className={cn(inputCls, "tracking-[0.5em] text-center font-mono")}
           />
@@ -164,7 +372,6 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
             type="password"
             inputMode="numeric"
             pattern="\d{4}"
-            required
             maxLength={4}
             value={pinConfirm}
             onChange={(e) =>
@@ -188,90 +395,62 @@ export function OnboardingForm({ mode, initialDisplayName, catalog }: Props) {
         )}
       </section>
 
-      {mode === "full" && (
-        <section className="flex flex-col gap-5 border-t border-border pt-6">
-          <div className="flex items-baseline justify-between">
-            <span className="text-[10px] uppercase tracking-[0.32em] text-foreground/45">
-              Tus BØLG · opcional
-            </span>
-            {selectedModels.length > 0 && (
-              <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/55">
-                {selectedModels.length} marcados
-              </span>
-            )}
-          </div>
-          <p className="max-w-lg text-sm leading-relaxed text-foreground/55">
-            Marca los que ya tienes para empezar tu equipaje. Puedes agregar
-            más después.
-          </p>
-          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4 md:grid-cols-5">
-            {catalog.map((m) => {
-              const selected = selectedModels.includes(m.id);
-              return (
-                <li key={m.id}>
-                  <button
-                    type="button"
-                    onClick={() => toggleModel(m.id)}
-                    className={cn(
-                      "group flex min-h-[44px] w-full flex-col gap-1.5 overflow-hidden border transition-colors",
-                      selected
-                        ? "border-foreground"
-                        : "border-border hover:border-foreground/60",
-                    )}
-                  >
-                    <div className="relative aspect-square bg-fog">
-                      {m.heroImageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={m.heroImageUrl}
-                          alt={m.name}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="grid h-full w-full place-items-center text-foreground/30">
-                          <ImageOff className="h-5 w-5" />
-                        </div>
-                      )}
-                      {selected && (
-                        <span className="absolute right-2 top-2 grid h-7 w-7 place-items-center bg-foreground text-background sm:h-6 sm:w-6">
-                          <Check className="h-3.5 w-3.5 sm:h-3 sm:w-3" />
-                        </span>
-                      )}
-                    </div>
-                    <span className="px-2 pb-2 text-left text-[12px] leading-tight sm:text-[11px]">
-                      {m.name}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      )}
-
       {state.status === "error" && (
-        <p className="font-mono text-xs text-destructive">{state.message}</p>
+        <p
+          role="alert"
+          className="border-l-2 border-destructive bg-destructive/[0.06] px-3 py-2 font-mono text-xs leading-relaxed text-destructive"
+        >
+          {state.message}
+        </p>
       )}
 
-      <div className="flex border-t border-border pt-6 sm:justify-end">
-        <button
-          type="submit"
-          disabled={isPending || pinMismatch || pin.length !== 4}
-          className="flex min-h-[48px] w-full items-center justify-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.28em] text-background hover:bg-foreground/80 transition-colors disabled:opacity-30 sm:w-auto"
-        >
-          {isPending ? (
-            <>
-              Guardando
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-            </>
-          ) : (
-            <>
-              Continuar
-              <ArrowRight className="h-3 w-3" aria-hidden />
-            </>
-          )}
-        </button>
+      {/* Wizard nav */}
+      <div className="flex flex-col-reverse gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+        {!isPinOnly && stepIdx > 0 ? (
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={isPending}
+            className="flex min-h-[44px] items-center justify-center gap-2 border border-border bg-transparent px-5 py-3 text-[10px] uppercase tracking-[0.28em] text-foreground/70 transition-colors hover:border-foreground hover:text-foreground disabled:opacity-30 sm:w-auto"
+          >
+            <ArrowLeft className="h-3 w-3" aria-hidden />
+            Atrás
+          </button>
+        ) : (
+          <span className="hidden sm:block" />
+        )}
+
+        {stepIdx < 2 ? (
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={stepIdx === 0 ? !identityValid : false}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.28em] text-background transition-colors hover:bg-foreground/80 disabled:opacity-30 sm:w-auto"
+          >
+            {stepIdx === 1 && selectedModels.length === 0
+              ? "Saltar este paso"
+              : "Siguiente"}
+            <ArrowRight className="h-3 w-3" aria-hidden />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={isPending || !securityValid}
+            className="flex min-h-[48px] w-full items-center justify-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.28em] text-background transition-colors hover:bg-foreground/80 disabled:opacity-30 sm:w-auto"
+          >
+            {isPending ? (
+              <>
+                Guardando
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+              </>
+            ) : (
+              <>
+                Comenzar a conquistar
+                <ArrowRight className="h-3 w-3" aria-hidden />
+              </>
+            )}
+          </button>
+        )}
       </div>
     </form>
   );

@@ -15,10 +15,14 @@ export type TripCardData = {
 };
 
 export function TripCard({ trip }: { trip: TripCardData }) {
+  const km = trip.distance_km ?? 0;
+  // distance === 0 → recorrido dentro de la misma ciudad: no son "0 km",
+  // son un viaje local. Mejor copy y no rompe la sensación de progreso.
+  const isLocal = km === 0;
   return (
     <Link
       href={`/t/${trip.id}`}
-      className="group flex flex-col gap-3 border border-border p-3 transition-colors hover:border-foreground/60 active:border-foreground/60 sm:p-4"
+      className="group relative flex flex-col gap-3 border border-border p-3 transition-all duration-200 hover:border-aurora/70 hover:shadow-[0_0_0_1px_rgba(91,192,190,0.25)] active:border-aurora/70 sm:p-4"
     >
       {trip.cover_photo_url ? (
         <div className="aspect-[4/3] overflow-hidden bg-fog">
@@ -26,7 +30,7 @@ export function TripCard({ trip }: { trip: TripCardData }) {
           <img
             src={trip.cover_photo_url}
             alt=""
-            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]"
+            className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             loading="lazy"
           />
         </div>
@@ -38,9 +42,13 @@ export function TripCard({ trip }: { trip: TripCardData }) {
           {tripDisplayTitle(trip)}
         </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/40">
-          <span className="tabular-nums">
-            {(trip.distance_km ?? 0).toLocaleString("es-CL")} km
-          </span>
+          {isLocal ? (
+            <span>Local</span>
+          ) : (
+            <span className="tabular-nums">
+              {km.toLocaleString("es-CL")} km
+            </span>
+          )}
           {trip.author && (
             <>
               <span className="px-2">·</span>

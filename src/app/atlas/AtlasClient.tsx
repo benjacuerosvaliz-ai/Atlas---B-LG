@@ -1,12 +1,13 @@
 "use client";
 
-import { ArrowRight, Plus, X } from "lucide-react";
+import { ArrowRight, MapPin, Plus, Sparkles, Trophy, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ActivityTicker } from "@/components/activity-ticker";
 import { BolgWordmark } from "@/components/bolg-wordmark";
 import { MonthlyPrizeChip } from "@/components/monthly-prize-chip";
+import { Bolg100Panel } from "@/components/bolg100-panel";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CONTINENT_NAMES, COUNTRY_TO_CONTINENT, type ContinentCode } from "@/lib/geo";
@@ -82,9 +83,11 @@ export function AtlasClient(props: Props) {
     bolg100Status,
   } = props;
   const [heroDismissed, setHeroDismissed] = useState(false);
+  const [heroExpanded, setHeroExpanded] = useState(false);
   const [mode, setMode] = useState<Mode>("global");
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
+  const [selectedBolg100Id, setSelectedBolg100Id] = useState<string | null>(null);
 
   // Si el usuario no está autenticado, forzamos modo global.
   const effectiveMode: Mode = authedUsername ? mode : "global";
@@ -147,11 +150,37 @@ export function AtlasClient(props: Props) {
     return map;
   }, [conqueredCities]);
 
+  // Social proof: cuántas conquistas hoy / cuántos conquistadores activos
+  // (calculado de los props que ya tenemos, sin nuevos fetchs).
+  const now = new Date();
+  const todayUtc = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(now.getUTCDate()).padStart(2, "0")}`;
+  const conquestsToday = useMemo(
+    () => recentActivity.filter((e) => e.at.startsWith(todayUtc)).length,
+    [recentActivity, todayUtc],
+  );
+  const uniqueRecentConquerors = useMemo(
+    () => new Set(recentActivity.map((e) => e.username)).size,
+    [recentActivity],
+  );
+
+  // Urgencia del premio mensual: cuántos días quedan para que se entregue.
+  const daysLeftInMonth = useMemo(() => {
+    const lastDay = new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 0).getUTCDate();
+    return Math.max(0, lastDay - now.getUTCDate());
+  }, [now]);
+
   const selectedCountryName = selectedCountry
     ? countryDisplayName(selectedCountry)
     : null;
 
   const selectedCity = selectedCityId ? cityById.get(selectedCityId) ?? null : null;
+  const selectedBolg100 = useMemo(
+    () =>
+      selectedBolg100Id
+        ? bolg100Status.find((d) => d.id === selectedBolg100Id) ?? null
+        : null,
+    [selectedBolg100Id, bolg100Status],
+  );
 
   function handleCityClick(cityId: string) {
     setSelectedCityId((curr) => (curr === cityId ? null : cityId));
@@ -225,11 +254,44 @@ export function AtlasClient(props: Props) {
         className="relative z-30 border-y border-border bg-card/40 px-4 py-3 md:px-8 md:py-4"
         data-tour="kpis"
       >
-        <div className="mx-auto grid w-full max-w-5xl grid-cols-4 gap-2 md:gap-6">
-          <Kpi value={kpis.totalKm} label="Km" />
-          <Kpi value={kpis.citiesVisited} label="Ciudades" />
-          <Kpi value={kpis.countriesRecorridos} total={totals.countries} label="Países" />
-          <Kpi value={kpis.continentsConocidos} total={totals.continents} label="Continentes" />
+        <div className="mx-auto w-full max-w-5xl">
+          <div className="grid grid-cols-4 gap-2 md:gap-6">
+            <Kpi value={kpis.totalKm} label="Km" />
+            <Kpi value={kpis.citiesVisited} label="Ciudades" />
+            <Kpi value={kpis.countriesRecorridos} total={totals.countries} label="Países" />
+            <Kpi
+              value={kpis.continentsConocidos}
+              total={totals.continents}
+              label="Continentes"
+            />
+          </div>
+          {(conquestsToday > 0 || uniqueRecentConquerors > 0 || daysLeftInMonth > 0) && (
+            <div className="mt-2.5 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-t border-border/60 pt-2 font-mono text-[9px] uppercase tracking-[0.24em] text-foreground/55 md:mt-3 md:pt-3 md:text-[10px]">
+              {conquestsToday > 0 && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-aurora" />
+                  Hoy · <span className="tabular-nums text-foreground">{conquestsToday}</span>{" "}
+                  {conquestsToday === 1 ? "conquista" : "conquistas"}
+                </span>
+              )}
+              {uniqueRecentConquerors > 0 && (
+                <span className="hidden sm:inline-flex items-center gap-1.5">
+                  Esta semana ·{" "}
+                  <span className="tabular-nums text-foreground">
+                    {uniqueRecentConquerors}
+                  </span>{" "}
+                  {uniqueRecentConquerors === 1 ? "conquistador" : "conquistadores"}
+                </span>
+              )}
+              {daysLeftInMonth > 0 && (
+                <span className="inline-flex items-center gap-1.5 text-ember">
+                  Premio del mes en{" "}
+                  <span className="tabular-nums">{daysLeftInMonth}</span>{" "}
+                  {daysLeftInMonth === 1 ? "día" : "días"}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
@@ -252,6 +314,11 @@ export function AtlasClient(props: Props) {
       <div className="absolute inset-0 z-0" data-tour="map">
         <WorldMap
           cityPins={cityPins}
+          onBolg100Click={(id) => {
+            setSelectedCountry(null);
+            setSelectedCityId(null);
+            setSelectedBolg100Id(id);
+          }}
           bolg100Pins={bolg100Status}
           selectedCityId={selectedCityId}
           selectedCountry={selectedCountry}
@@ -267,53 +334,18 @@ export function AtlasClient(props: Props) {
         </span>
       </div>
 
-      {/* Anonymous hero hook — manifesto card. En mobile va anclado arriba
-          (top-[110px]) para no chocar con el bottom panel; en sm+ va centrado.
-          El wrapper usa box-border + px-4 simétrico y el card se auto-centra
-          con mx-auto + w-full + max-w-md (clampea bien a 375px). */}
+      {/* Anonymous hero hook — sutil, no tapa el mapa.
+          Mobile: chip anclado bottom (sobre el scroll hint) que se expande
+          al tocar. El usuario ve el mapa primero y decide explorar.
+          Desktop: chip flotante top-right discreto.
+          Estado: collapsed por defecto, expandido al click. */}
       {!authedUsername && !heroDismissed && (
-        <div className="pointer-events-none absolute inset-x-0 top-[110px] z-20 box-border flex justify-center px-4 sm:inset-0 sm:top-0 sm:items-center">
-          <div className="pointer-events-auto mx-auto flex w-full min-w-0 max-w-md flex-col gap-3 border-2 border-foreground bg-card/95 p-4 backdrop-blur-md sm:gap-4 sm:p-6 md:p-8">
-            <div className="flex items-start justify-between gap-3">
-              <span className="text-[10px] uppercase tracking-[0.36em] text-aurora">
-                Atlas BØLG
-              </span>
-              <button
-                type="button"
-                onClick={() => setHeroDismissed(true)}
-                aria-label="Cerrar"
-                className="text-foreground/40 transition-colors hover:text-foreground"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <h2 className="font-display text-2xl font-black leading-[1.02] tracking-tight sm:text-3xl md:text-4xl">
-              Conquista el mundo con tu BØLG.
-            </h2>
-            <p className="text-xs leading-relaxed text-foreground/70 sm:text-sm">
-              Cada ciudad tiene un conquistador. El primero que llega con un
-              BØLG queda con su nombre clavado hasta que lo destronen. Cada mes
-              el #1 del ranking se lleva un parche edición limitada, $100.000
-              CLP y la portada de RRSS.
-            </p>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Link
-                href="/login"
-                className="group flex flex-1 items-center justify-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.32em] text-background transition-colors hover:bg-foreground/80 sm:py-4"
-              >
-                Súmate a conquistar
-                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => setHeroDismissed(true)}
-                className="px-5 py-3 text-[10px] uppercase tracking-[0.32em] text-foreground/55 transition-colors hover:text-foreground sm:py-4"
-              >
-                Solo mirar
-              </button>
-            </div>
-          </div>
-        </div>
+        <AnonymousHook
+          expanded={heroExpanded}
+          onExpand={() => setHeroExpanded(true)}
+          onCollapse={() => setHeroExpanded(false)}
+          onDismiss={() => setHeroDismissed(true)}
+        />
       )}
 
       {/* Onboarding tour */}
@@ -344,6 +376,15 @@ export function AtlasClient(props: Props) {
           countryName={countryDisplayName(selectedCity.countryCode)}
           onClose={() => setSelectedCityId(null)}
           showInvite={!authedUsername}
+        />
+      )}
+
+      {/* BØLG-100 destination panel (click sobre un ghost pin) */}
+      {selectedBolg100 && (
+        <Bolg100Panel
+          destination={selectedBolg100}
+          onClose={() => setSelectedBolg100Id(null)}
+          authedUsername={authedUsername}
         />
       )}
       </section>
@@ -498,20 +539,98 @@ export function AtlasClient(props: Props) {
         </section>
       )}
 
-      {/* SECTION 6 — CTA "Hazte parte" solo para anónimos */}
+      {/* SECTION 6 — CTA brutal "Tu nombre puede estar en este mapa" */}
       {!authedUsername && (
         <section
-          className="border-t border-border px-4 py-10 md:px-8 md:py-14"
+          className="relative border-t border-border bg-foreground px-4 py-12 text-background md:px-8 md:py-20"
           data-tour="join"
         >
-          <div className="mx-auto w-full max-w-3xl">
-            <Link
-              href="/login"
-              className="group flex items-center justify-center gap-2 border-2 border-foreground bg-foreground/[0.04] px-6 py-5 text-center text-[10px] uppercase tracking-[0.32em] text-foreground transition-colors hover:bg-foreground/10"
-            >
-              Hazte parte de la comunidad
-              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
-            </Link>
+          {/* Patrón sutil para que respire */}
+          <div
+            className="pointer-events-none absolute inset-0 opacity-[0.04]"
+            style={{
+              backgroundImage:
+                "repeating-linear-gradient(45deg, currentColor 0 1px, transparent 1px 12px)",
+            }}
+            aria-hidden
+          />
+          <div className="relative mx-auto flex w-full max-w-3xl flex-col gap-8 md:gap-10">
+            <div className="flex flex-col gap-3">
+              <span className="text-[10px] uppercase tracking-[0.36em] text-aurora">
+                Atlas BØLG · Anónimo
+              </span>
+              <h2 className="font-display text-3xl font-black leading-[1.02] tracking-tight sm:text-4xl md:text-5xl">
+                Tu nombre puede estar
+                <br />
+                en este mapa.
+              </h2>
+              <p className="max-w-xl text-sm leading-relaxed text-background/70 md:text-base">
+                Súmate gratis. La primera ciudad que subas con un BØLG queda
+                marcada con tu nombre hasta que alguien te destrone.
+              </p>
+            </div>
+
+            {/* 3 razones icónicas */}
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <ReasonCard
+                icon={<MapPin className="h-4 w-4" />}
+                title="Conquista"
+                copy="Sube un viaje y la ciudad lleva tu nombre."
+              />
+              <ReasonCard
+                icon={<Trophy className="h-4 w-4" />}
+                title={
+                  daysLeftInMonth > 0
+                    ? `Premio en ${daysLeftInMonth} ${daysLeftInMonth === 1 ? "día" : "días"}`
+                    : "Premio del mes"
+                }
+                copy="$100.000 + parche edición limitada al #1."
+              />
+              <ReasonCard
+                icon={<Sparkles className="h-4 w-4" />}
+                title="Comunidad"
+                copy={
+                  uniqueRecentConquerors > 0
+                    ? `${uniqueRecentConquerors} conquistadores activos esta semana.`
+                    : "Conquistadores activos cada semana."
+                }
+              />
+            </ul>
+
+            {/* Mini-preview del perfil */}
+            <div className="border border-background/20 bg-background/[0.04] p-4 md:p-5">
+              <span className="font-mono text-[10px] uppercase tracking-[0.28em] text-background/55">
+                Así se verá tu perfil
+              </span>
+              <div className="mt-3 flex items-center gap-3">
+                <div className="grid h-12 w-12 shrink-0 place-items-center border border-background/30 bg-background/10 font-display text-sm font-black text-background/70">
+                  TÚ
+                </div>
+                <div className="flex min-w-0 flex-1 flex-col">
+                  <span className="text-sm font-medium">@tu_username</span>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.24em] text-background/55">
+                    0 km · 0 ciudades · #— ranking
+                  </span>
+                </div>
+                <span className="hidden font-mono text-[9px] uppercase tracking-[0.28em] text-aurora sm:inline">
+                  Pendiente conquista
+                </span>
+              </div>
+            </div>
+
+            {/* CTA gigante */}
+            <div className="flex flex-col gap-2">
+              <Link
+                href="/login"
+                className="group flex items-center justify-center gap-3 bg-aurora px-6 py-5 text-center text-[11px] font-medium uppercase tracking-[0.32em] text-foreground transition-colors hover:bg-aurora/85 md:py-6 md:text-[13px]"
+              >
+                Crear cuenta gratis · 30 segundos
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+              </Link>
+              <span className="text-center font-mono text-[10px] uppercase tracking-[0.28em] text-background/45">
+                Sin tarjeta · Sin spam · Conquistar mi primera ciudad
+              </span>
+            </div>
           </div>
         </section>
       )}
@@ -791,7 +910,7 @@ function CountryPanel({
           href="/login"
           className="group flex items-center justify-center gap-2 border-t border-border bg-foreground/[0.03] px-4 py-3 text-center text-[10px] uppercase tracking-[0.32em] text-foreground/75 transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
         >
-          Hazte parte de la comunidad
+          Súmate al Atlas · Gratis
           <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </Link>
       )}
@@ -901,11 +1020,110 @@ function CityPanel({
           href="/login"
           className="group flex items-center justify-center gap-2 border-t border-border bg-foreground/[0.03] px-4 py-3 text-center text-[10px] uppercase tracking-[0.32em] text-foreground/75 transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
         >
-          Hazte parte de la comunidad
+          Súmate al Atlas · Gratis
           <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </Link>
       )}
     </div>
+  );
+}
+
+function AnonymousHook({
+  expanded,
+  onExpand,
+  onCollapse,
+  onDismiss,
+}: {
+  expanded: boolean;
+  onExpand: () => void;
+  onCollapse: () => void;
+  onDismiss: () => void;
+}) {
+  if (!expanded) {
+    // Estado colapsado: chip discreto que NO tapa el mapa.
+    // Mobile: bottom-anchored, sobre el scroll hint. Desktop: top-right.
+    return (
+      <div className="pointer-events-none absolute inset-x-0 bottom-12 z-[25] flex justify-center px-4 sm:bottom-auto sm:left-auto sm:right-6 sm:top-12 sm:justify-end sm:px-0">
+        <button
+          type="button"
+          onClick={onExpand}
+          className="pointer-events-auto group flex items-center gap-2 border border-foreground/30 bg-card/90 px-3 py-2 font-mono text-[10px] uppercase tracking-[0.28em] text-foreground/75 shadow-lg backdrop-blur-md transition-all hover:border-foreground hover:text-foreground"
+        >
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-aurora" />
+          <span>Conquistar mi primera ciudad</span>
+          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+        </button>
+      </div>
+    );
+  }
+
+  // Estado expandido: card con backdrop-blur fuerte y opacidad alta
+  // para que sea legible pero el mapa siga visible detrás.
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-[110px] z-20 box-border flex justify-center px-4 sm:inset-0 sm:top-0 sm:items-center">
+      <div className="pointer-events-auto mx-auto flex w-full min-w-0 max-w-md flex-col gap-3 border-2 border-foreground bg-card/[0.96] p-4 shadow-2xl backdrop-blur-xl sm:gap-4 sm:p-6 md:p-8">
+        <div className="flex items-start justify-between gap-3">
+          <span className="text-[10px] uppercase tracking-[0.36em] text-aurora">
+            Atlas BØLG
+          </span>
+          <button
+            type="button"
+            onClick={onCollapse}
+            aria-label="Cerrar"
+            className="text-foreground/40 transition-colors hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <h2 className="font-display text-2xl font-black leading-[1.02] tracking-tight sm:text-3xl md:text-4xl">
+          Conquista el mundo con tu BØLG.
+        </h2>
+        <p className="text-xs leading-relaxed text-foreground/70 sm:text-sm">
+          Cada ciudad tiene un conquistador. El primero que llega con un BØLG
+          queda con su nombre clavado hasta que lo destronen. Cada mes el #1
+          se lleva un parche edición limitada, $100.000 CLP y la portada de
+          RRSS.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row-reverse">
+          <Link
+            href="/login"
+            className="group flex flex-1 items-center justify-center gap-2 bg-foreground px-5 py-3 text-[10px] uppercase tracking-[0.32em] text-background transition-colors hover:bg-foreground/80 sm:py-4"
+          >
+            Crear cuenta gratis
+            <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
+          </Link>
+          <button
+            type="button"
+            onClick={onDismiss}
+            className="border border-foreground/30 px-5 py-3 text-[10px] uppercase tracking-[0.32em] text-foreground transition-colors hover:border-foreground hover:bg-foreground/[0.05] sm:py-4"
+          >
+            Explorar el mapa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ReasonCard({
+  icon,
+  title,
+  copy,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  copy: string;
+}) {
+  return (
+    <li className="flex flex-col gap-2 border border-background/20 bg-background/[0.04] p-4">
+      <span className="flex h-7 w-7 items-center justify-center border border-background/30 text-aurora">
+        {icon}
+      </span>
+      <span className="text-[10px] uppercase tracking-[0.28em] text-background/80">
+        {title}
+      </span>
+      <span className="text-xs leading-snug text-background/65">{copy}</span>
+    </li>
   );
 }
 

@@ -52,7 +52,7 @@ export default async function OnboardingPage() {
                 Un paso más
               </span>
               <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
-                Crea tu PIN de 4 dígitos.
+                Tu llave para conquistar más rápido.
               </h1>
               <p className="text-base leading-relaxed text-foreground/65">
                 A partir de ahora puedes entrar con{" "}
@@ -103,10 +103,10 @@ export default async function OnboardingPage() {
               Bienvenido al Atlas BØLG
             </span>
             <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
-              Antes de empezar, cuéntale al Atlas BØLG quién eres.
+              Tu primera conquista empieza acá.
             </h1>
             <p className="text-base leading-relaxed text-foreground/65">
-              60 segundos. Después subimos tu primer viaje juntos.
+              3 pasos, 60 segundos. Después subimos tu primer viaje juntos.
             </p>
           </div>
 

@@ -30,11 +30,13 @@ export default async function LoginPage({ searchParams }: Props) {
               Ingresar
             </span>
             <h1 className="font-display text-3xl font-black leading-[1.1] tracking-tight md:text-4xl">
-              Entra al Atlas.
+              Tu mapa te espera.
             </h1>
-            <p className="text-base leading-relaxed text-foreground/60">
-              Usuario + PIN si ya tienes cuenta. Magic link si es tu primera
-              vez o si olvidaste el PIN.
+            <p className="text-base leading-relaxed text-foreground/65">
+              Cada conquista cuenta. Cada premio se va a manos de alguien.
+            </p>
+            <p className="font-mono text-[10px] uppercase tracking-[0.22em] text-foreground/45">
+              Usuario + PIN si ya tienes cuenta · Magic link si es tu primera vez
             </p>
           </div>
 

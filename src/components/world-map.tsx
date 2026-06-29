@@ -40,6 +40,10 @@ export type Bolg100Pin = {
   id: string;
   name: string;
   country: string;
+  /** Alpha-2 lowercase del país — usado por el panel para la bandera. */
+  countryCode?: string;
+  /** Categoría BØLG: iconic/hidden/natural/cultural/extreme. */
+  category?: "iconic" | "hidden" | "natural" | "cultural" | "extreme";
   lat: number;
   lng: number;
   touched: boolean;

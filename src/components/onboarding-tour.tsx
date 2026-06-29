@@ -8,16 +8,14 @@ import { useCallback, useEffect, useRef } from "react";
 /**
  * Tour estilo MercadoLibre/Strava para usuarios anónimos en /.
  *
- * Recorre 6 elementos clave del Atlas resaltando con spotlight:
- *   1. Mapa con países conquistados
- *   2. KPIs (lo que vas a sumar tú)
- *   3. Top 3 viajeros (a quién quieres pasar)
- *   4. Chips de país (drill-down)
- *   5. Botón "Cargar viaje" o link "Hazte parte"
- *   6. CTA final → /login
+ * Recorre 4 puntos clave del Atlas (scroll-based, sin el panel HUD viejo):
+ *   1. KPI banner — lo que la comunidad ya conquistó
+ *   2. Mapa — cómo se lee (ember = destino, aurora = conquistador)
+ *   3. Top conquistadores — el ranking que puedes pasar
+ *   4. CTA hazte parte — tu turno
  *
- * Trigger: usuario anónimo, primera visita (localStorage). Se puede
- * reabrir con el botón "?" abajo a la izquierda en cualquier momento.
+ * Trigger: solo manual con el botón "?". No auto-fire (el hero card
+ * de bienvenida ya cubre la primera visita).
  */
 
 const STORAGE_KEY = "bolg_tour_seen_v1";
@@ -46,19 +44,21 @@ export function OnboardingTour({ authedUsername }: Props) {
         popoverClass: "bolg-tour-popover",
         steps: [
           {
-            element: '[data-tour="map"]',
+            element: '[data-tour="kpis"]',
             popover: {
-              title: "Este es el Atlas BØLG.",
+              title: "Lo que ya conquistó la comunidad.",
               description:
-                "Cada ciudad del mundo puede ser conquistada por un viajero BØLG. Los países que ves coloreados son los que ya tienen al menos una persona que los recorrió con su BØLG.",
+                "Kilómetros, ciudades, países y continentes que clientes BØLG ya pisaron. Tus viajes suman a este contador.",
+              side: "bottom",
+              align: "center",
             },
           },
           {
-            element: '[data-tour="kpis"]',
+            element: '[data-tour="map"]',
             popover: {
-              title: "Los números de la comunidad.",
+              title: "Así se lee el mapa.",
               description:
-                "Acá están los kilómetros recorridos, ciudades visitadas, países y continentes que ya pisaron clientes BØLG. ¿Te imaginas sumar los tuyos?",
+                "Cada estrella ember es un destino BØLG sin conquistar. Cada punto aurora es alguien que ya conquistó esa ciudad. Tócalos para ver el detalle.",
               side: "bottom",
               align: "center",
             },
@@ -66,19 +66,9 @@ export function OnboardingTour({ authedUsername }: Props) {
           {
             element: '[data-tour="top"]',
             popover: {
-              title: "Los top viajeros.",
+              title: "Top conquistadores.",
               description:
-                "Los 3 con más kilómetros recorridos. Cuando subas tus viajes, vas a ir trepando este ranking. Hay premios mensuales para el #1.",
-              side: "bottom",
-              align: "end",
-            },
-          },
-          {
-            element: '[data-tour="hud"]',
-            popover: {
-              title: "Explora país por país.",
-              description:
-                "Toca cualquier país para ver quién ha estado ahí. Cuando subas tu primer viaje, ese país se pinta — y si eres el primero con producto BØLG, te conviertes en su conquistador.",
+                "Si subes más viajes que ellos, los pasas. El #1 del mes se lleva premio.",
               side: "top",
               align: "center",
             },
@@ -88,7 +78,7 @@ export function OnboardingTour({ authedUsername }: Props) {
             popover: {
               title: "Tu turno.",
               description:
-                "Crear tu cuenta toma 30 segundos y es gratis. Sube tu primer viaje, marca tu territorio en el mapa, y empieza tu propio Atlas.",
+                "Crea tu cuenta en 30 segundos, sube tu primer viaje y empieza a marcar territorio.",
               side: "top",
               align: "center",
             },
