@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Confirma tu nuevo correo BØLG Atlas</title>
+    <!--[if mso]>
+    <style type="text/css">
+      table, td, div, h1, h2, h3, p, a { font-family: Arial, Helvetica, sans-serif !important; }
+    </style>
+    <![endif]-->
+  </head>
+  <body style="margin:0;padding:0;background-color:#0a0a0a;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;color:#f4f1ea;-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%;">
+    <!-- Preview text (hidden) -->
+    <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;line-height:1px;color:#0a0a0a;opacity:0;">
+      Confirma este es tu nuevo correo en el Atlas BØLG.
+    </div>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background-color:#0a0a0a;min-width:100%;">
+      <tr>
+        <td align="center" style="padding:40px 16px 40px 16px;">
+
+          <!-- Container -->
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="560" style="max-width:560px;width:100%;background-color:#0a0a0a;border:1px solid #1f1f1f;">
+
+            <!-- Header -->
+            <tr>
+              <td style="padding:32px 32px 24px 32px;border-bottom:1px solid #1f1f1f;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td align="left" style="font-family:'Inter Tight','Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;letter-spacing:0.08em;color:#f4f1ea;line-height:1;">
+                      BØLG
+                    </td>
+                    <td align="right" style="font-family:'JetBrains Mono','Courier New',Courier,monospace;font-size:11px;font-weight:500;letter-spacing:0.24em;color:#5bc0be;text-transform:uppercase;line-height:1;">
+                      ATLAS
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Hero -->
+            <tr>
+              <td style="padding:48px 32px 16px 32px;">
+                <p style="margin:0 0 16px 0;font-family:'JetBrains Mono','Courier New',Courier,monospace;font-size:11px;font-weight:500;letter-spacing:0.24em;color:#d4a373;text-transform:uppercase;line-height:1;">
+                  Cambio de correo
+                </p>
+                <h1 style="margin:0;font-family:'Inter Tight','Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:36px;font-weight:700;line-height:1.1;letter-spacing:-0.02em;color:#f4f1ea;">
+                  Confirma tu nuevo correo
+                </h1>
+              </td>
+            </tr>
+
+            <!-- Body -->
+            <tr>
+              <td style="padding:24px 32px 32px 32px;">
+                <p style="margin:0 0 16px 0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;font-weight:400;line-height:1.6;color:#c8c4ba;">
+                  Cambiaste el correo de tu cuenta — confirma este es tuyo.
+                </p>
+                <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;font-weight:400;line-height:1.6;color:#8a8678;">
+                  Pediste mover el acceso de tu Atlas a {{ .Email }}. Toca el botón abajo para activarlo.
+                </p>
+              </td>
+            </tr>
+
+            <!-- CTA -->
+            <tr>
+              <td style="padding:0 32px 32px 32px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+                  <tr>
+                    <td align="left">
+                      <!--[if mso]>
+                      <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="{{ .ConfirmationURL }}" style="height:52px;v-text-anchor:middle;width:240px;" arcsize="0%" stroke="f" fillcolor="#5bc0be">
+                        <w:anchorlock/>
+                        <center style="color:#0a0a0a;font-family:Arial,Helvetica,sans-serif;font-size:14px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;">Confirmar correo</center>
+                      </v:roundrect>
+                      <![endif]-->
+                      <!--[if !mso]><!-- -->
+                      <a href="{{ .ConfirmationURL }}" target="_blank" style="display:inline-block;background-color:#5bc0be;color:#0a0a0a;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;padding:18px 36px;border:1px solid #5bc0be;mso-padding-alt:0;">
+                        Confirmar correo
+                      </a>
+                      <!--<![endif]-->
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+
+            <!-- Fallback URL -->
+            <tr>
+              <td style="padding:0 32px 40px 32px;">
+                <p style="margin:0 0 8px 0;font-family:'JetBrains Mono','Courier New',Courier,monospace;font-size:11px;font-weight:500;letter-spacing:0.16em;color:#6b6b6b;text-transform:uppercase;line-height:1;">
+                  ¿No funciona el botón?
+                </p>
+                <p style="margin:0;font-family:'JetBrains Mono','Courier New',Courier,monospace;font-size:12px;line-height:1.5;color:#5bc0be;word-break:break-all;">
+                  <a href="{{ .ConfirmationURL }}" style="color:#5bc0be;text-decoration:underline;">{{ .ConfirmationURL }}</a>
+                </p>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td style="padding:24px 32px 32px 32px;border-top:1px solid #1f1f1f;">
+                <p style="margin:0;font-family:'Inter','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:12px;line-height:1.6;color:#6b6b6b;">
+                  Si no fuiste tú, ignora este correo · BØLG Atlas · Chile
+                </p>
+              </td>
+            </tr>
+
+          </table>
+
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+
+<!--
+PLAIN TEXT FALLBACK
+====================
+BØLG · ATLAS
+
+Confirma tu nuevo correo
+
+Cambiaste el correo de tu cuenta — confirma este es tuyo.
+Pediste mover el acceso de tu Atlas a {{ .Email }}.
+
+{{ .ConfirmationURL }}
+
+—
+Si no fuiste tú, ignora este correo.
+BØLG Atlas · Chile
+-->

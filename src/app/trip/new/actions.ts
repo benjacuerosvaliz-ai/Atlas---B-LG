@@ -18,6 +18,17 @@ const MAX_TRIP_DISTANCE_KM = 50_000;
 const MAX_TRIP_YEARS_BACK = 10;
 
 /**
+ * Anti-fraude soft: si origen y destino quedan dentro de este radio
+ * (en km) los tratamos como "loop sospechoso" — el viaje se guarda pero
+ * con `is_validated=false` y `validation_method='pending_review'` para
+ * que un humano lo revise desde /admin/audit. Estos trips NO deberían
+ * contar para BØLG-100 hits; el filtro vive en loader.ts (pendiente:
+ * agregar `WHERE is_validated = true` cuando esa columna se enchufe
+ * al pipeline de hits).
+ */
+const SAME_PLACE_RADIUS_KM = 1;
+
+/**
  * Crea un viaje v2:
  * 1. Upsert ciudades origen + destino en public.cities (dedupe por mapbox_id).
  * 2. Inserta trip con fecha YYYY-MM-01, distancia auto-haversine.
@@ -107,6 +118,15 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     };
   }
 
+  // f) Anti-fraude soft: viajes con origen ≈ destino (mismo punto en el
+  // mapa) son típicos de farm de hits BØLG — el usuario "viaja" de su
+  // casa a su casa para reclamar producto sin moverse. No los bloqueamos
+  // (puede ser legítimo: "fui a la esquina con mi parka"), solo los
+  // marcamos para review humana. NO deberían contar para BØLG-100;
+  // implementar el filtro `is_validated = true` en loader.ts cuando se
+  // enchufe al pipeline de hits.
+  const isSamePlace = distanceKm <= SAME_PLACE_RADIUS_KM;
+
   // e) Anti-injection: si vienen claimedModelIds, validamos que TODOS
   // existan en product_models antes de meterlos a las tablas (sino el
   // user_claimed_models queda con IDs falsos y el dashboard explota).
@@ -170,8 +190,8 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
       activity_type: "drive",
       visibility: "public",
       counts_for_bolg: bolgVisible,
-      is_validated: true,
-      validation_method: "manual",
+      is_validated: !isSamePlace,
+      validation_method: isSamePlace ? "pending_review" : "manual",
       migrated_to_v2: true,
     })
     .select("id")

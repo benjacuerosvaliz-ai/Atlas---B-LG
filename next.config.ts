@@ -8,9 +8,28 @@ const nextConfig: NextConfig = {
   },
 
   // Headers de seguridad básicos a todas las rutas.
-  // CSP queda fuera a propósito — es invasivo (mapbox, supabase, cloudinary,
-  // three.js, framer-motion, etc.) y requiere auditar caso por caso.
+  // CSP va en Report-Only — loguea violations al endpoint /api/csp-report
+  // sin bloquear nada. Apretarla a enforcing una vez que el report endpoint
+  // confirme que no hay falsos positivos en producción.
   async headers() {
+    // Policy razonable para Next 16 + Supabase + Mapbox + Cloudinary +
+    // react-simple-maps (carga topojson desde jsdelivr).
+    // 'unsafe-inline' + 'unsafe-eval' en script-src son necesarios mientras
+    // Next emita inline bootstrap chunks y RSC payloads; al pasar a enforcing
+    // se debe migrar a nonces (ver app/guides/content-security-policy).
+    const cspReportOnly = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https://*.supabase.co https://res.cloudinary.com https://*.tile.openstreetmap.org https://api.mapbox.com",
+      "font-src 'self' data: https://fonts.gstatic.com",
+      "connect-src 'self' https://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://res.cloudinary.com https://cdn.jsdelivr.net",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "report-uri /api/csp-report",
+    ].join("; ");
+
     return [
       {
         source: "/:path*",
@@ -24,6 +43,10 @@ const nextConfig: NextConfig = {
           {
             key: "Permissions-Policy",
             value: "camera=(), microphone=(), geolocation=(self)",
+          },
+          {
+            key: "Content-Security-Policy-Report-Only",
+            value: cspReportOnly,
           },
         ],
       },
