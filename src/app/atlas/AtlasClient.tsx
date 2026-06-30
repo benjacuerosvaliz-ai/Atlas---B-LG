@@ -1,17 +1,19 @@
 "use client";
 
-import { ArrowRight, MapPin, Plus, Sparkles, Trophy, X } from "lucide-react";
+import { ArrowRight, ExternalLink, MapPin, Plus, Sparkles, Trophy, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ActivityTicker } from "@/components/activity-ticker";
 import { BolgWordmark } from "@/components/bolg-wordmark";
+import { FirstVisitToast } from "@/components/first-visit-toast";
 import { MonthlyPrizeChip } from "@/components/monthly-prize-chip";
 import { Bolg100Panel } from "@/components/bolg100-panel";
 import { OnboardingTour } from "@/components/onboarding-tour";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { CONTINENT_NAMES, COUNTRY_TO_CONTINENT, type ContinentCode } from "@/lib/geo";
 import { cn } from "@/lib/utils";
+import { buildEscapeUrl, isInAppBrowser } from "@/lib/webview";
 import type {
   ActivityEvent,
   Bolg100Status,
@@ -88,6 +90,24 @@ export function AtlasClient(props: Props) {
   const [selectedCountry, setSelectedCountry] = useState<string | null>(null);
   const [selectedCityId, setSelectedCityId] = useState<string | null>(null);
   const [selectedBolg100Id, setSelectedBolg100Id] = useState<string | null>(null);
+
+  // WebView / in-app browser detection — IG/WA/FB/etc. cargan topojson
+  // externos con menos confiabilidad. Detectamos client-side y mostramos
+  // un banner suave invitando a abrir en navegador. NO bloquea el mapa.
+  const [webview, setWebview] = useState<{ on: boolean; escapeUrl: string | null }>(
+    { on: false, escapeUrl: null },
+  );
+  const [webviewBannerDismissed, setWebviewBannerDismissed] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ua = window.navigator.userAgent;
+    if (!isInAppBrowser(ua)) return;
+    setWebview({
+      on: true,
+      escapeUrl: buildEscapeUrl(window.location.href, ua),
+    });
+  }, []);
 
   // Si el usuario no está autenticado, forzamos modo global.
   const effectiveMode: Mode = authedUsername ? mode : "global";
@@ -247,6 +267,15 @@ export function AtlasClient(props: Props) {
         </div>
       </header>
 
+      {/* WebView banner — sutil, sobre el KPI. Solo si detectamos in-app
+          browser (IG/WA/FB/etc.) y el user aún no lo cerró. */}
+      {webview.on && !webviewBannerDismissed && (
+        <WebViewBanner
+          escapeUrl={webview.escapeUrl}
+          onDismiss={() => setWebviewBannerDismissed(true)}
+        />
+      )}
+
       {/* KPI BANNER — arriba del mapa. Es lo primero que ve el usuario:
           cuánto kilometraje + cuántas ciudades / países / continentes
           conquistados.  Mobile 4 cols (compactas), desktop 4 cols grandes. */}
@@ -350,6 +379,9 @@ export function AtlasClient(props: Props) {
 
       {/* Onboarding tour */}
       <OnboardingTour authedUsername={authedUsername} />
+
+      {/* Toast de "primera vez" — solo si NO es WebView (evitar overload). */}
+      {!webview.on && <FirstVisitToast authedUsername={authedUsername} />}
 
       {/* Country drill-down panel */}
       {selectedCountry && (
@@ -544,6 +576,7 @@ export function AtlasClient(props: Props) {
         <section
           className="relative border-t border-border bg-foreground px-4 py-12 text-background md:px-8 md:py-20"
           data-tour="join"
+          aria-label="Invitación a sumarte al Atlas BØLG"
         >
           {/* Patrón sutil para que respire */}
           <div
@@ -1124,6 +1157,46 @@ function ReasonCard({
       </span>
       <span className="text-xs leading-snug text-background/65">{copy}</span>
     </li>
+  );
+}
+
+function WebViewBanner({
+  escapeUrl,
+  onDismiss,
+}: {
+  escapeUrl: string | null;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      role="status"
+      className="relative z-30 flex items-center justify-between gap-3 border-y border-ember/40 bg-ember/[0.08] px-4 py-2 text-foreground/85 md:px-8"
+    >
+      <span className="flex-1 font-mono text-[10px] leading-snug tracking-[0.04em] sm:text-[11px]">
+        Mejor experiencia en Safari o Chrome — toca aquí para abrir.
+      </span>
+      <div className="flex shrink-0 items-center gap-2">
+        {escapeUrl && (
+          <a
+            href={escapeUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 border border-foreground/40 px-2.5 py-1 font-mono text-[9px] uppercase tracking-[0.28em] text-foreground transition-colors hover:border-foreground hover:bg-foreground/[0.05]"
+          >
+            Abrir
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        )}
+        <button
+          type="button"
+          onClick={onDismiss}
+          aria-label="Cerrar aviso de navegador"
+          className="text-foreground/50 transition-colors hover:text-foreground"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
   );
 }
 

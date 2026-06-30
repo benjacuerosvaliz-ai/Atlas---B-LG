@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { CookieBanner } from "@/components/cookie-banner";
 import "./globals.css";
 
 const interTight = Inter_Tight({
@@ -58,6 +59,7 @@ export default function RootLayout({
     >
       <body className="bg-background text-foreground min-h-full flex flex-col">
         {children}
+        <CookieBanner />
       </body>
     </html>
   );

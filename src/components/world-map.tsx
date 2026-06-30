@@ -159,6 +159,8 @@ export const WorldMap = memo(function WorldMap({
       projection="geoNaturalEarth1"
       projectionConfig={{ scale: 165 }}
       style={{ width: "100%", height: "100%" }}
+      role="img"
+      aria-label="Mapa-mundi del Atlas BØLG con pins de ciudades conquistadas y destinos BØLG-100"
     >
       <ZoomableGroup
         center={[-30, -10]}

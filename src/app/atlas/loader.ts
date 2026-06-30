@@ -7,8 +7,14 @@
  *  - Top 3 viajeros por cities_conquered (con fallback a users.total_km
  *    para tener algo que mostrar mientras la comunidad aún no tiene
  *    city_visits).
+ *
+ * Caching: la parte global (sin user) está envuelta en `unstable_cache`
+ * con revalidate 60s + tag "atlas". La parte personal se calcula por
+ * request porque depende de user.id y RLS por sesión.
  */
 
+import { unstable_cache } from "next/cache";
+import { createClient as createAnonClient } from "@supabase/supabase-js";
 import { BOLG_100, matchBolg100, type Bolg100Destination } from "@/lib/bolg-100";
 import { COUNTRY_TO_CONTINENT } from "@/lib/geo";
 import { createClient } from "@/lib/supabase/server";
@@ -69,24 +75,49 @@ export type Totals = {
   bolg100: number;    // 100 destinos BØLG curados
 };
 
-export async function loadAtlasV2Data(): Promise<{
-  authedUsername: string | null;
+export type AtlasGlobalData = {
   globalKpis: Kpis;
-  personalKpis: Kpis | null;
   totals: Totals;
   statusByCountryGlobal: Record<string, CountryStatus>;
-  statusByCountryPersonal: Record<string, CountryStatus> | null;
   topTravelers: TopTraveler[];
   recentActivity: ActivityEvent[];
   conqueredCities: ConqueredCity[];
-  bolg100Status: Bolg100Status[];
-}> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Set serializado como array para que unstable_cache lo pueda persistir.
+  globalBolg100Ids: string[];
+  bolg100BolgVisibleIds: string[];
+};
 
-  // Run independent queries in parallel.
+export type AtlasPersonalData = {
+  authedUsername: string | null;
+  personalKpis: Kpis | null;
+  statusByCountryPersonal: Record<string, CountryStatus> | null;
+  // Coordenadas de las visitas del usuario — necesarias para calcular
+  // touchedByMe sobre el catálogo BØLG-100 al combinar con la data global.
+  personalCoords: Array<{ lat: number; lng: number }>;
+};
+
+/**
+ * Cliente Supabase anónimo, SIN cookies. Necesario dentro de
+ * `unstable_cache` porque `headers()`/`cookies()` están prohibidos en
+ * scopes cacheados. Las queries globales solo leen tablas/vistas con
+ * políticas `*_public_read`, así que un anon key alcanza.
+ */
+function createCachedClient() {
+  return createAnonClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    },
+  );
+}
+
+async function loadAtlasGlobalUncached(): Promise<AtlasGlobalData> {
+  const supabase = createCachedClient();
+
   const [
     { data: tripsKmRows },
     { data: visitsGlobal },
@@ -95,7 +126,6 @@ export async function loadAtlasV2Data(): Promise<{
     { data: topRaw },
     { data: activityRaw },
     { data: conquerorsRaw },
-    personalUsername,
   ] = await Promise.all([
     supabase.from("trips").select("distance_km").eq("visibility", "public"),
     supabase
@@ -121,14 +151,6 @@ export async function loadAtlasV2Data(): Promise<{
     supabase
       .from("city_conquerors")
       .select("city_id, conqueror_id, bolg_visible"),
-    user
-      ? supabase
-          .from("users")
-          .select("username")
-          .eq("id", user.id)
-          .single()
-          .then(({ data }) => (data?.username as string | null) ?? null)
-      : Promise.resolve(null),
   ]);
 
   const totals: Totals = {
@@ -158,11 +180,6 @@ export async function loadAtlasV2Data(): Promise<{
     if (c?.country_code) globalCountries.add(c.country_code);
     if (c?.continent_code) globalContinents.add(c.continent_code);
   }
-  // Hits de BØLG-100 globales: por cada city_visit, ¿está dentro del
-  // radio de algún destino curado? Se hidratan lat/lng desde las city
-  // rows que ya pedimos abajo. Para no quintuplicar queries, dejamos
-  // este cálculo después de tener `conqueredCities` resuelto y rehidratamos
-  // globalKpis con el conteo.
   const globalKpis: Kpis = {
     totalKm: totalKmGlobal,
     citiesVisited: globalCities.size,
@@ -171,81 +188,6 @@ export async function loadAtlasV2Data(): Promise<{
     bolg100Hit: 0, // se setea más abajo
   };
 
-  // Personal KPIs + country status (only if authed)
-  let personalKpis: Kpis | null = null;
-  let statusByCountryPersonal: Record<string, CountryStatus> | null = null;
-  let personalCoords: Array<{ lat: number; lng: number }> = [];
-  if (user) {
-    const [
-      { data: myTripsKm },
-      { data: myVisits },
-      { data: myCountryStatus },
-    ] = await Promise.all([
-      supabase.from("trips").select("distance_km").eq("user_id", user.id),
-      supabase
-        .from("city_visits")
-        .select(
-          "city_id, cities(country_code, continent_code, latitude, longitude)",
-        )
-        .eq("user_id", user.id),
-      supabase.rpc("user_country_status", { p_user_id: user.id }),
-    ]);
-
-    const myKm = Math.round(
-      (myTripsKm ?? []).reduce(
-        (acc, r) => acc + ((r.distance_km as number | null) ?? 0),
-        0,
-      ),
-    );
-    const myCities = new Set<string>();
-    const myCountries = new Set<string>();
-    const myContinents = new Set<string>();
-    type MyVisitCity = {
-      country_code?: string | null;
-      continent_code?: string | null;
-      latitude?: number | string | null;
-      longitude?: number | string | null;
-    };
-    const myCoords: Array<{ lat: number; lng: number }> = [];
-    for (const v of myVisits ?? []) {
-      myCities.add(v.city_id as string);
-      const c = (v.cities as unknown as MyVisitCity | null) ?? null;
-      if (c?.country_code) myCountries.add(c.country_code);
-      if (c?.continent_code) myContinents.add(c.continent_code);
-      if (c?.latitude != null && c?.longitude != null) {
-        const lat = typeof c.latitude === "string"
-          ? Number.parseFloat(c.latitude)
-          : c.latitude;
-        const lng = typeof c.longitude === "string"
-          ? Number.parseFloat(c.longitude)
-          : c.longitude;
-        if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
-          myCoords.push({ lat, lng });
-        }
-      }
-    }
-    // Conteo de hits BØLG-100 personales (unique destinos tocados por mí).
-    const myBolg100Set = new Set<string>();
-    for (const { lat, lng } of myCoords) {
-      const m = matchBolg100(lat, lng);
-      if (m) myBolg100Set.add(m.id);
-    }
-    personalKpis = {
-      totalKm: myKm,
-      citiesVisited: myCities.size,
-      countriesRecorridos: myCountries.size,
-      continentsConocidos: myContinents.size,
-      bolg100Hit: myBolg100Set.size,
-    };
-    // guardamos también las coords para el cálculo de bolg100Status abajo
-    personalCoords = myCoords;
-    statusByCountryPersonal = {};
-    for (const r of (myCountryStatus as Array<{ country_code: string; status: string }> | null) ?? []) {
-      statusByCountryPersonal[r.country_code] = r.status as CountryStatus;
-    }
-  }
-
-  // Status map for the global view.
   const statusByCountryGlobal: Record<string, CountryStatus> = {};
   for (const r of (globalCountryStatus as Array<{ country_code: string; status: string }> | null) ?? []) {
     statusByCountryGlobal[r.country_code] = r.status as CountryStatus;
@@ -389,9 +331,7 @@ export async function loadAtlasV2Data(): Promise<{
       .filter((c): c is ConqueredCity => c !== null);
   }
 
-  // BØLG-100: status por destino. "touched" = al menos 1 visita de la
-  // comunidad dentro del radio. "touchedByMe" = idem pero del usuario actual.
-  // "bolgVisibleHit" = al menos 1 conquistador en el radio con bolg_visible.
+  // BØLG-100: hits globales y bolg-visible hits.
   const globalBolg100Set = new Set<string>();
   const bolg100BolgVisibleSet = new Set<string>();
   for (const c of conqueredCities) {
@@ -402,15 +342,162 @@ export async function loadAtlasV2Data(): Promise<{
   }
   globalKpis.bolg100Hit = globalBolg100Set.size;
 
+  return {
+    globalKpis,
+    totals,
+    statusByCountryGlobal,
+    topTravelers,
+    recentActivity,
+    conqueredCities,
+    globalBolg100Ids: Array.from(globalBolg100Set),
+    bolg100BolgVisibleIds: Array.from(bolg100BolgVisibleSet),
+  };
+}
+
+/**
+ * Versión cacheada (60s, tag "atlas") de la data global del Atlas.
+ * Llamar `revalidateTag("atlas")` después de mutar trips/visits para
+ * forzar refresco.
+ */
+export const loadAtlasGlobalCached = unstable_cache(
+  loadAtlasGlobalUncached,
+  ["atlas-global-v1"],
+  {
+    revalidate: 60,
+    tags: ["atlas"],
+  },
+);
+
+/**
+ * Data personal del usuario autenticado. NO cacheada (cambia por user.id
+ * y se actualiza apenas el usuario sube un viaje propio).
+ */
+async function loadAtlasPersonal(): Promise<AtlasPersonalData> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return {
+      authedUsername: null,
+      personalKpis: null,
+      statusByCountryPersonal: null,
+      personalCoords: [],
+    };
+  }
+
+  const [
+    { data: myTripsKm },
+    { data: myVisits },
+    { data: myCountryStatus },
+    profileRes,
+  ] = await Promise.all([
+    supabase.from("trips").select("distance_km").eq("user_id", user.id),
+    supabase
+      .from("city_visits")
+      .select(
+        "city_id, cities(country_code, continent_code, latitude, longitude)",
+      )
+      .eq("user_id", user.id),
+    supabase.rpc("user_country_status", { p_user_id: user.id }),
+    supabase
+      .from("users")
+      .select("username")
+      .eq("id", user.id)
+      .single(),
+  ]);
+
+  const authedUsername =
+    (profileRes.data?.username as string | null) ?? null;
+
+  const myKm = Math.round(
+    (myTripsKm ?? []).reduce(
+      (acc, r) => acc + ((r.distance_km as number | null) ?? 0),
+      0,
+    ),
+  );
+  const myCities = new Set<string>();
+  const myCountries = new Set<string>();
+  const myContinents = new Set<string>();
+  type MyVisitCity = {
+    country_code?: string | null;
+    continent_code?: string | null;
+    latitude?: number | string | null;
+    longitude?: number | string | null;
+  };
+  const myCoords: Array<{ lat: number; lng: number }> = [];
+  for (const v of myVisits ?? []) {
+    myCities.add(v.city_id as string);
+    const c = (v.cities as unknown as MyVisitCity | null) ?? null;
+    if (c?.country_code) myCountries.add(c.country_code);
+    if (c?.continent_code) myContinents.add(c.continent_code);
+    if (c?.latitude != null && c?.longitude != null) {
+      const lat = typeof c.latitude === "string"
+        ? Number.parseFloat(c.latitude)
+        : c.latitude;
+      const lng = typeof c.longitude === "string"
+        ? Number.parseFloat(c.longitude)
+        : c.longitude;
+      if (!Number.isNaN(lat) && !Number.isNaN(lng)) {
+        myCoords.push({ lat, lng });
+      }
+    }
+  }
+  // Conteo de hits BØLG-100 personales (unique destinos tocados por mí).
   const myBolg100Set = new Set<string>();
-  for (const { lat, lng } of personalCoords) {
+  for (const { lat, lng } of myCoords) {
     const m = matchBolg100(lat, lng);
     if (m) myBolg100Set.add(m.id);
   }
-  // Si el usuario está autenticado, reaplicamos por si conqueredCities y
-  // las propias visits divergen (puede haber visits no-bolg sin conqueror).
-  if (personalKpis) {
-    personalKpis.bolg100Hit = myBolg100Set.size;
+
+  const personalKpis: Kpis = {
+    totalKm: myKm,
+    citiesVisited: myCities.size,
+    countriesRecorridos: myCountries.size,
+    continentsConocidos: myContinents.size,
+    bolg100Hit: myBolg100Set.size,
+  };
+
+  const statusByCountryPersonal: Record<string, CountryStatus> = {};
+  for (const r of (myCountryStatus as Array<{ country_code: string; status: string }> | null) ?? []) {
+    statusByCountryPersonal[r.country_code] = r.status as CountryStatus;
+  }
+
+  return {
+    authedUsername,
+    personalKpis,
+    statusByCountryPersonal,
+    personalCoords: myCoords,
+  };
+}
+
+export async function loadAtlasV2Data(): Promise<{
+  authedUsername: string | null;
+  globalKpis: Kpis;
+  personalKpis: Kpis | null;
+  totals: Totals;
+  statusByCountryGlobal: Record<string, CountryStatus>;
+  statusByCountryPersonal: Record<string, CountryStatus> | null;
+  topTravelers: TopTraveler[];
+  recentActivity: ActivityEvent[];
+  conqueredCities: ConqueredCity[];
+  bolg100Status: Bolg100Status[];
+}> {
+  // Global (cacheado 60s) + personal (por request) en paralelo.
+  const [globalData, personalData] = await Promise.all([
+    loadAtlasGlobalCached(),
+    loadAtlasPersonal(),
+  ]);
+
+  const globalBolg100Set = new Set(globalData.globalBolg100Ids);
+  const bolg100BolgVisibleSet = new Set(globalData.bolg100BolgVisibleIds);
+
+  // Re-derivar set personal desde coords cacheadas en `personalData`.
+  const myBolg100Set = new Set<string>();
+  for (const { lat, lng } of personalData.personalCoords) {
+    const m = matchBolg100(lat, lng);
+    if (m) myBolg100Set.add(m.id);
   }
 
   const bolg100Status: Bolg100Status[] = BOLG_100.map((d) => ({
@@ -421,15 +508,15 @@ export async function loadAtlasV2Data(): Promise<{
   }));
 
   return {
-    authedUsername: personalUsername,
-    globalKpis,
-    personalKpis,
-    totals,
-    statusByCountryGlobal,
-    statusByCountryPersonal,
-    topTravelers,
-    recentActivity,
-    conqueredCities,
+    authedUsername: personalData.authedUsername,
+    globalKpis: globalData.globalKpis,
+    personalKpis: personalData.personalKpis,
+    totals: globalData.totals,
+    statusByCountryGlobal: globalData.statusByCountryGlobal,
+    statusByCountryPersonal: personalData.statusByCountryPersonal,
+    topTravelers: globalData.topTravelers,
+    recentActivity: globalData.recentActivity,
+    conqueredCities: globalData.conqueredCities,
     bolg100Status,
   };
 }

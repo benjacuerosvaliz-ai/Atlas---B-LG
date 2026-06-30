@@ -1,13 +1,21 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { continentOf, haversineKm } from "@/lib/geo";
+import { checkRateLimit } from "@/lib/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import type { City } from "@/lib/mapbox";
 import type { TripFormData } from "./types";
 
 type CreateTripResult = { error: string } | undefined;
+
+/** Sanity check: ningún viaje real entre dos ciudades del planeta supera
+ * los 20.075 km (mitad de la circunferencia ecuatorial). Dejamos margen. */
+const MAX_TRIP_DISTANCE_KM = 50_000;
+
+/** Cuánto hacia atrás aceptamos viajes. */
+const MAX_TRIP_YEARS_BACK = 10;
 
 /**
  * Crea un viaje v2:
@@ -23,12 +31,60 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
   } = await supabase.auth.getUser();
 
   if (!user) return { error: "Tu sesión expiró. Vuelve a entrar." };
+
+  // Rate-limit: máx 5 viajes por hora por user. Defensa básica contra
+  // spam — se pierde en cold-start, suficiente para frenar bots simples.
+  const rl = checkRateLimit(`trip:${user.id}`, 5, 3600);
+  if (!rl.allowed) {
+    const minutes = Math.max(1, Math.ceil(rl.retryAfterSec / 60));
+    return {
+      error: `Demasiados viajes en poco tiempo. Espera ${minutes} minutos.`,
+    };
+  }
+
   if (!data.originCity) return { error: "Falta la ciudad de origen." };
   if (!data.destinationCity) return { error: "Falta la ciudad de destino." };
   if (!data.month || data.month < 1 || data.month > 12) {
     return { error: "Falta el mes." };
   }
   if (!data.year) return { error: "Falta el año." };
+
+  // --- Validaciones server-side hardening ---
+  // El form ya las hace en cliente, pero esto cierra la puerta a payloads
+  // crafteados a mano (server actions reciben JSON arbitrario).
+
+  // a) Fecha de inicio no en el futuro. Comparamos a nivel de mes para
+  // ser consistentes con el form (solo mes + año, día 1 implícito).
+  const now = new Date();
+  const currentYear = now.getUTCFullYear();
+  const currentMonth = now.getUTCMonth() + 1; // 1-12
+  if (
+    data.year > currentYear ||
+    (data.year === currentYear && data.month > currentMonth)
+  ) {
+    return { error: "La fecha del viaje no puede estar en el futuro." };
+  }
+
+  // d) Año dentro de [currentYear - 10, currentYear].
+  if (data.year < currentYear - MAX_TRIP_YEARS_BACK) {
+    return {
+      error: `Solo aceptamos viajes desde el año ${currentYear - MAX_TRIP_YEARS_BACK} en adelante.`,
+    };
+  }
+
+  // c) Coordenadas dentro de rangos válidos. Mapbox devuelve floats
+  // razonables, pero si alguien manda payload custom esto lo corta.
+  if (!isValidLatLng(data.originCity.latitude, data.originCity.longitude)) {
+    return { error: "Las coordenadas de la ciudad de origen no son válidas." };
+  }
+  if (
+    !isValidLatLng(
+      data.destinationCity.latitude,
+      data.destinationCity.longitude,
+    )
+  ) {
+    return { error: "Las coordenadas de la ciudad de destino no son válidas." };
+  }
 
   // Date: usamos el día 1 del mes seleccionado para mantener compat con
   // trips.start_at que es DATE NOT NULL.
@@ -41,6 +97,36 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     data.destinationCity.latitude,
     data.destinationCity.longitude,
   );
+
+  // b) Sanity check de distancia. La haversine entre dos puntos del globo
+  // nunca debiera pasar de ~20.075 km; si supera 50.000 es señal clara de
+  // input corrupto (coords mezcladas, ciudad con lat=lng=0, etc).
+  if (!Number.isFinite(distanceKm) || distanceKm > MAX_TRIP_DISTANCE_KM) {
+    return {
+      error: "La distancia calculada es inválida. Revisa las ciudades.",
+    };
+  }
+
+  // e) Anti-injection: si vienen claimedModelIds, validamos que TODOS
+  // existan en product_models antes de meterlos a las tablas (sino el
+  // user_claimed_models queda con IDs falsos y el dashboard explota).
+  if (data.claimedModelIds.length > 0) {
+    // Dedupe defensivo — el form ya lo hace pero por si acaso.
+    const uniqueIds = Array.from(new Set(data.claimedModelIds));
+    const { data: foundModels, error: modelsErr } = await supabase
+      .from("product_models")
+      .select("id")
+      .in("id", uniqueIds);
+    if (modelsErr) {
+      console.error("[createTrip] product_models lookup", modelsErr);
+      return { error: "No pudimos validar los productos. Reintenta." };
+    }
+    if ((foundModels?.length ?? 0) !== uniqueIds.length) {
+      return {
+        error: "Uno de los productos reclamados ya no existe. Refresca la página.",
+      };
+    }
+  }
 
   const bolgVisible = data.claimedModelIds.length > 0;
 
@@ -96,6 +182,11 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
     return { error: insertErr?.message ?? "No se pudo crear el viaje." };
   }
   const tripId = inserted.id as string;
+
+  // El trip ya está adentro: invalida el cache del Atlas para que el
+  // próximo render de /atlas reconstruya KPIs/mapa/leaderboard.
+  // Next 16 exige el segundo arg; "max" = stale-while-revalidate.
+  revalidateTag("atlas", "max");
 
   // --- Paso 3: city_visits ---
   // Si origen == destino (misma ciudad) insertamos UNA sola visita, no dos
@@ -255,6 +346,21 @@ export async function createTrip(data: TripFormData): Promise<CreateTripResult> 
   }
   const qs = params.toString();
   redirect(qs ? `/t/${tripId}?${qs}` : `/t/${tripId}`);
+}
+
+/**
+ * Validación de coordenadas geográficas. Acepta solo floats finitos en
+ * los rangos WGS84 estándar.
+ */
+function isValidLatLng(lat: number, lng: number): boolean {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
 }
 
 /**
