@@ -118,6 +118,15 @@ function createCachedClient() {
 async function loadAtlasGlobalUncached(): Promise<AtlasGlobalData> {
   const supabase = createCachedClient();
 
+  // Filtro global: solo trips validados cuentan para stats públicas
+  // (KPIs comunidad, BØLG-100 hits, country chips, conqueredCities, leaderboard).
+  // Los trips con is_validated=false son sospechosos (origen=destino ≤1km) y
+  // quedan en pending_review hasta que un humano los revise. Sin este filtro,
+  // basta con subir un viaje fake "ciudad X → ciudad X" para inflar el mapa.
+  //
+  // city_visits no tiene columna is_validated propia — se filtra a través de
+  // trip_id → trips.is_validated en las views (ver migración 0017). Las
+  // queries directas a city_visits acá filtran manualmente joineando trips.
   const [
     { data: tripsKmRows },
     { data: visitsGlobal },
@@ -127,10 +136,19 @@ async function loadAtlasGlobalUncached(): Promise<AtlasGlobalData> {
     { data: activityRaw },
     { data: conquerorsRaw },
   ] = await Promise.all([
-    supabase.from("trips").select("distance_km").eq("visibility", "public"),
+    supabase
+      .from("trips")
+      .select("distance_km")
+      .eq("visibility", "public")
+      .eq("is_validated", true),
+    // Filtramos visitas cuyo trip asociado esté validado. inner join +
+    // is_validated=true en trips descarta visitas sospechosas.
     supabase
       .from("city_visits")
-      .select("city_id, cities(country_code, continent_code)"),
+      .select(
+        "city_id, cities(country_code, continent_code), trips!inner(is_validated)",
+      )
+      .eq("trips.is_validated", true),
     supabase.from("country_status_global").select("country_code, status"),
     supabase.from("cities").select("id", { count: "exact", head: true }),
     supabase
@@ -138,16 +156,20 @@ async function loadAtlasGlobalUncached(): Promise<AtlasGlobalData> {
       .select("id, username, display_name, avatar_url, total_km")
       .order("total_km", { ascending: false })
       .limit(25),
+    // Recent activity es público: solo mostramos visitas validadas.
     supabase
       .from("city_visits")
       .select(
-        "uploaded_at, bolg_visible, cities(name, country_code), users(username, display_name, avatar_url)",
+        "uploaded_at, bolg_visible, cities(name, country_code), users(username, display_name, avatar_url), trips!inner(is_validated)",
       )
+      .eq("trips.is_validated", true)
       .order("uploaded_at", { ascending: false })
       .limit(12),
     // Conquistadores actuales por ciudad — base para los pins del mapa.
     // (cities/users se resuelven aparte porque city_conquerors es una view
     // y PostgREST no detecta FKs sobre views.)
+    // La view city_conquerors ya filtra is_validated=true en su definición
+    // (migración 0017), así que acá no agregamos filtro extra.
     supabase
       .from("city_conquerors")
       .select("city_id, conqueror_id, bolg_visible"),
@@ -224,6 +246,9 @@ async function loadAtlasGlobalUncached(): Promise<AtlasGlobalData> {
       display_name: string | null;
       avatar_url: string | null;
     } | null;
+    // Trae el inner join a trips para que TS no se queje del select extra.
+    // No lo leemos — solo está para el `.eq("trips.is_validated", true)`.
+    trips: { is_validated: boolean } | { is_validated: boolean }[] | null;
   };
   const recentActivity: ActivityEvent[] = ((activityRaw ?? []) as unknown as RawActivity[])
     .filter(
@@ -387,6 +412,11 @@ async function loadAtlasPersonal(): Promise<AtlasPersonalData> {
     };
   }
 
+  // OJO: las queries personales NO filtran por is_validated. La realidad del
+  // usuario es lo que él subió — sus stats personales (km, ciudades, países,
+  // continentes, BØLG-100 personal) incluyen sus pendientes de revisión. Solo
+  // el mundo (queries globales arriba) descarta los no-validados para que un
+  // viaje sospechoso no inflar el mapa público / BØLG-100 / country chips.
   const [
     { data: myTripsKm },
     { data: myVisits },

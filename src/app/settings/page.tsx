@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { BolgWordmark } from "@/components/bolg-wordmark";
 import { createClient } from "@/lib/supabase/server";
+import { DangerZone } from "./DangerZone";
 import { SettingsForm } from "./SettingsForm";
 
 export const metadata: Metadata = {
@@ -63,6 +64,8 @@ export default async function SettingsPage() {
             initialCoverUrl={profile?.cover_url ?? ""}
             email={user.email ?? ""}
           />
+
+          {profile?.username && <DangerZone username={profile.username} />}
         </div>
       </main>
     </div>
